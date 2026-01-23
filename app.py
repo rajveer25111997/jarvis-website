@@ -41,9 +41,9 @@ if mode == "Master Dashboard":
 
             with col1:
                 if not data.empty and 'EMA9' in data.columns:
-    st.line_chart(data[['Close', 'EMA9', 'EMA21']])
-else:
-    st.warning("बाजार बंद होने के कारण चार्ट लोड नहीं हो रहा है।")
+                    st.line_chart(data[['Close', 'EMA9', 'EMA21']])
+                else:
+                    st.warning("बाजार बंद होने के कारण चार्ट लोड नहीं हो रहा है।")
             
             with col2:
                 # न्यूज़ इम्पैक्ट और मनी फ्लो (Jarvis Insights)
