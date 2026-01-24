@@ -3,68 +3,79 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
+import base64
 
 # 1. सेटअप और 10 सेकंड रिफ्रेश
-st.set_page_config(page_title="Jarvis Anti-Flicker", layout="wide")
-st_autorefresh(interval=10000, key="jarvis_refresh")
+st.set_page_config(page_title="Jarvis AI: Voice & Scanner", layout="wide")
+st_autorefresh(interval=10000, key="jarvis_master_refresh")
 
-st.title("🤖 JARVIS : Continuous Live Monitor")
+# --- वॉइस फंक्शन (पॉइंट 4) ---
+def speak_text(text):
+    # यह फंक्शन ब्राउज़र में आवाज़ पैदा करेगा
+    b64 = base64.b64encode(text.encode()).decode()
+    md = f"""
+        <iframe src="https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=hi&client=tw-ob" allow="autoplay" style="display:none"></iframe>
+        """
+    st.markdown(md, unsafe_allow_html=True)
 
-# --- डेटा फेचिंग (बिना चार्ट गायब किए) ---
-@st.cache_data(ttl=9) # 9 सेकंड तक डेटा को याद रखेगा ताकि चार्ट गायब न हो
-def get_fast_data(ticker):
+# --- डेटा और स्कैनिंग फंक्शन (पॉइंट 3) ---
+@st.cache_data(ttl=9)
+def get_jarvis_data(ticker):
     try:
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
+        df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
         return df
-    except:
-        return None
+    except: return None
 
-def draw_chart(df, title):
-    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
-    fig.update_layout(template="plotly_dark", height=380, margin=dict(l=0,r=0,b=0,t=0), xaxis_rangeslider_visible=False)
-    return fig
+st.title("🤖 JARVIS : Voice Alerts & Profit Finder")
 
-# --- मेन डैशबोर्ड ---
 col1, col2 = st.columns(2)
 
-# --- इंडियन मार्केट (Left) ---
+# --- 🇮🇳 इंडियन मार्केट + स्कैनर ---
 with col1:
-    st.subheader("🇮🇳 NSE Live")
-    ind_t = "RELIANCE.NS" if st.sidebar.button("Switch to Reliance") else "^NSEI"
-    data_in = get_fast_data(ind_t)
+    st.header("🇮🇳 Indian Market")
+    ind_ticker = st.text_input("Stock:", "^NSEI")
+    data_in = get_jarvis_data(ind_ticker)
     
-    if data_in is not None and not data_in.empty:
-        st.plotly_chart(draw_chart(data_in, ind_t), use_container_width=True, config={'displayModeBar': False})
-        curr = data_in['Close'].iloc[-1]
-        st.metric("Current Price", f"₹{curr:,.2f}")
-    
-    st.write("📈 **Top Indian Movers**")
-    i_list = ["TCS.NS", "SBIN.NS", "HDFCBANK.NS"]
-    c1, c2, c3 = st.columns(3)
-    for i, s in enumerate(i_list):
-        d = get_fast_data(s)
-        if d is not None:
-            [c1, c2, c3][i].metric(s.split('.')[0], f"₹{d['Close'].iloc[-1]:,.0f}")
+    if data_in is not None:
+        # EMA क्रॉसओवर चेक और वॉइस अलर्ट
+        e9, e21 = data_in['EMA9'].iloc[-1], data_in['EMA21'].iloc[-1]
+        if e9 > e21 and data_in['EMA9'].iloc[-2] <= data_in['EMA21'].iloc[-2]:
+            st.warning("🎯 BUY SIGNAL GENERATED!")
+            speak_text("राजवीर सर, इंडिया मार्केट में खरीदारी का मौका है")
+            
+        st.plotly_chart(go.Figure(data=[go.Candlestick(x=data_in.index, open=data_in['Open'], high=data_in['High'], low=data_in['Low'], close=data_in['Close'])]), use_container_width=True)
 
-# --- क्रिप्टो मार्केट (Right) ---
+# --- ₿ क्रिप्टो मार्केट + स्कैनर ---
 with col2:
-    st.subheader("₿ Crypto Live")
-    cry_t = "BTC-USD"
-    data_cry = get_fast_data(cry_t)
+    st.header("₿ Crypto Market")
+    cry_ticker = st.text_input("Crypto:", "BTC-USD")
+    data_cr = get_jarvis_data(cry_ticker)
     
-    if data_cry is not None and not data_cry.empty:
-        st.plotly_chart(draw_chart(data_cry, cry_t), use_container_width=True, config={'displayModeBar': False})
-        curr_c = data_cry['Close'].iloc[-1]
-        st.metric("Current Price", f"${curr_c:,.2f}")
+    if data_cr is not None:
+        # EMA क्रॉसओवर चेक और वॉइस अलर्ट
+        ce9, ce21 = data_cr['EMA9'].iloc[-1], data_cr['EMA21'].iloc[-1]
+        if ce9 > ce21 and data_cr['EMA9'].iloc[-2] <= data_cr['EMA21'].iloc[-2]:
+            st.success("🚀 CRYPTO BUY SIGNAL!")
+            speak_text("सर, क्रिप्टो में प्रॉफिट का मौका बन रहा है")
+            
+        st.plotly_chart(go.Figure(data=[go.Candlestick(x=data_cr.index, open=data_cr['Open'], high=data_cr['High'], low=data_cr['Low'], close=data_cr['Close'])]), use_container_width=True)
 
-    st.write("🚀 **Top Crypto Movers**")
-    c_list = ["ETH-USD", "SOL-USD", "DOGE-USD"]
-    cc1, cc2, cc3 = st.columns(3)
-    for i, s in enumerate(c_list):
-        d = get_fast_data(s)
-        if d is not None:
-            [cc1, cc2, cc3][i].metric(s.split('-')[0], f"${d['Close'].iloc[-1]:,.1f}")
+# --- 🚀 PROFIT FINDER BOXES (नीचे की लिस्ट) ---
+st.divider()
+st.subheader("🔎 Jarvis Profit Finder (Gainer Scanner)")
+s_col1, s_col2, s_col3, s_col4 = st.columns(4)
+scan_list = ["TATAMOTORS.NS", "SBIN.NS", "ETH-USD", "SOL-USD"]
+scan_cols = [s_col1, s_col2, s_col3, s_col4]
 
-st.sidebar.success("✅ Jarvis is Tracking Live")
+for i, t in enumerate(scan_list):
+    df_s = get_jarvis_data(t)
+    if df_s is not None:
+        change = ((df_s['Close'].iloc[-1] - df_s['Open'].iloc[0]) / df_s['Open'].iloc[0]) * 100
+        with scan_cols[i]:
+            if abs(change) >= 2.0: # अगर 2% से ज्यादा हलचल है
+                st.balloons() # स्क्रीन पर गुब्बारे छोड़ें
+                st.error(f"🔥 ALERT: {t} moved {change:.2f}%")
+            st.metric(t, f"{df_s['Close'].iloc[-1]:.2f}", f"{change:.2f}%")
