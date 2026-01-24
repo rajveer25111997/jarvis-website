@@ -1,49 +1,52 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import time
 
-st.set_page_config(page_title="Jarvis AI Pro", layout="wide")
-st.title("🤖 JARVIS : Multi-Market Intelligence")
+st.set_page_config(page_title="Jarvis Live AI", layout="wide")
 
-# साइडबार सेटअप
-st.sidebar.header("🕹️ Jarvis Controls")
-market = st.sidebar.selectbox("मार्केट चुनें:", ["Crypto Currency", "Indian Stock Market"])
+# --- ऑटो रिफ्रेश (हर 30 सेकंड में) ---
+# यह कोड जार्विस की स्क्रीन को बिना बटन दबाए अपडेट करेगा
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=30000, key="jarvis_refresh")
 
-# डेटा लाने और साफ करने का फंक्शन
-def fetch_clean_data(ticker):
+st.title("🤖 JARVIS : Live Crypto Tracking")
+
+# मार्केट और कॉइन सिलेक्शन
+coin = st.sidebar.text_input("कॉइन का नाम (Live Test):", "BTC-USD")
+
+# डेटा फेचिंग (1 Minute Interval के साथ)
+def fetch_live_data(ticker):
     try:
-        df = yf.download(ticker, period="7d", interval="1h")
-        if df.empty:
-            return None
+        # 1 मिनट का डेटा ताकि आपको हर छोटी हलचल दिखे
+        df = yf.download(ticker, period="1d", interval="1m")
+        if df.empty: return None
         
-        # MultiIndex हटाना (KeyError का पक्का इलाज)
+        # Multi-index सफाई
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
             
-        # आपकी 9/21 EMA स्ट्रैटेजी
+        # आपकी 9/21 EMA स्ट्रेटजी
         df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
         df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-        return df.dropna()
+        return df.tail(60) # सिर्फ आखिरी 60 मिनट का डेटा दिखाएं ताकि मूवमेंट दिखे
     except:
         return None
 
-# एनालिसिस मोड
-if market == "Crypto Currency":
-    st.subheader("₿ लाइव क्रिप्टो (24/7 Analysis)")
-    coin = st.text_input("कॉइन डालें (जैसे: BTC-USD)", "BTC-USD")
-    data = fetch_clean_data(coin)
-    
-    if data is not None:
-        st.line_chart(data[['Close', 'EMA9', 'EMA21']])
-        last_p = float(data['Close'].iloc[-1])
-        st.metric("Current Price", f"${last_p:,.2f}")
-        
-        if data['EMA9'].iloc[-1] > data['EMA21'].iloc[-1]:
-            st.success("🎯 जार्विस सिग्नल: BULLISH")
-        else:
-            st.error("📉 जार्विस सिग्नल: BEARISH")
-    else:
-        st.warning("डेटा लोड नहीं हो पाया। कृपया सही सिंबल डालें।")
+data = fetch_live_data(coin)
 
+if data is not None:
+    # प्राइस और सिग्नल
+    last_p = float(data['Close'].iloc[-1])
+    st.metric(f"🔴 LIVE PRICE ({coin})", f"${last_p:,.2f}")
+    
+    # ज़ूम वाला चार्ट (Movement देखने के लिए)
+    st.line_chart(data[['Close', 'EMA9', 'EMA21']])
+    
+    # जार्विस का लाइव फैसला
+    if data['EMA9'].iloc[-1] > data['EMA21'].iloc[-1]:
+        st.success("🎯 जार्विस सिग्नल: BULLISH (Price is Moving Up!)")
+    else:
+        st.error("📉 जार्विस सिग्नल: BEARISH (Price is Slipping!)")
 else:
-    st.info("🇮🇳 भारतीय बाज़ार मंडे सुबह 9:15 पर लाइव होगा। तब तक क्रिप्टो टेस्ट करें।")
+    st.warning("डेटा अपडेट हो रहा है... कृपया 5 सेकंड रुकें।")
