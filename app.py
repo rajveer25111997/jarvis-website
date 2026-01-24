@@ -71,5 +71,7 @@ for i, t in enumerate(tickers):
     with cols[i]:
         t_data = yf.download(t, period="1d", interval="1m", progress=False)
         if not t_data.empty:
-            price = t_data['Close'].iloc[-1]
+            # लाइन 74: डेटा को नंबर (float) में बदलें
+            price = float(t_data['Close'].iloc[-1])
+            # लाइन 75: अब इसे डिब्बे में छापें
             st.info(f"**{t}**\n\nPrice: {price:,.2f}")
