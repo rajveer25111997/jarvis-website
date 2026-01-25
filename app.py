@@ -3,73 +3,80 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
-import base64
 
-# 1. 'ब्रह्मांड की गति' - 1 सेकंड रिफ्रेश
-st.set_page_config(page_title="Jarvis 1s Ultra-Fast", layout="wide")
-st_autorefresh(interval=1000, key="jarvis_1s_refresh") # 1000ms = 1 Second
+# 1. पेज सेटअप - ब्रोकरेज ऐप जैसा क्लीन लुक
+st.set_page_config(page_title="Jarvis Live Terminal", layout="wide", initial_sidebar_state="collapsed")
+st_autorefresh(interval=1000, key="jarvis_fast_tick") # 1 सेकंड की टिक
 
-def speak_text(text):
-    audio_html = f"""<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=hi&client=tw-ob" type="audio/mpeg"></audio>"""
-    st.markdown(audio_html, unsafe_allow_html=True)
+# CSS: स्क्रीन को डार्क और प्रोफेशनल बनाने के लिए
+st.markdown("""
+    <style>
+    .main { background-color: #0d1117; }
+    div[data-testid="stMetricValue"] { font-size: 35px; color: #00ff00; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- डेटा इंजन (1 सेकंड की लोडिंग के लिए ऑप्टिमाइज्ड) ---
-@st.cache_data(ttl=1) # सिर्फ 1 सेकंड की याददाश्त
-def get_1s_data(ticker, period="1d", interval="1m"):
+# --- डेटा लोडर (केवल लाइव डेटा पर फोकस) ---
+@st.cache_data(ttl=1)
+def get_live_tick(ticker):
     try:
-        df = yf.download(ticker, period=period, interval=interval, progress=False)
-        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        df = yf.download(ticker, period="1d", interval="1m", progress=False)
+        if df.empty:
+            df = yf.download(ticker, period="5d", interval="5m", progress=False)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        
+        # 9/21 EMA (आपकी स्ट्रेटजी)
+        df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
+        df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
         return df
-    except: return None
+    except:
+        return None
 
-st.title("🤖 JARVIS : Extreme 1s Live Terminal")
-
-# --- टॉप बार: न्यूज़ और अलर्ट ---
-st.markdown("<marquee style='color: #00FF00; font-weight: bold; background: #1E1E1E; padding: 5px;'>🚀 जार्विस हर 1 सेकंड में बाज़ार को स्कैन कर रहा है... लाइव डेटा फीड एक्टिव है... </marquee>", unsafe_allow_html=True)
+# --- टॉप हेडर ---
+st.markdown("<h2 style='text-align: center; color: white;'>🤖 JARVIS : Live Market Feed</h2>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
-# --- 🇮🇳 LIVE NSE (1s Update) ---
-with col1:
-    st.header("🇮🇳 India Live")
-    in_t = st.text_input("Symbol:", "^NSEI")
-    data_in = get_1s_data(in_t)
-    if data_in is not None:
-        price = data_in['Close'].iloc[-1]
-        st.metric(f"{in_t} LIVE", f"₹{price:,.2f}")
-        
-        fig = go.Figure(data=[go.Candlestick(x=data_in.index, open=data_in['Open'], high=data_in['High'], low=data_in['Low'], close=data_in['Close'])])
-        fig.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
-        st.plotly_chart(fig, use_container_width=True)
+def draw_terminal(ticker, label, column):
+    data = get_live_tick(ticker)
+    with column:
+        if data is not None:
+            last_price = data['Close'].iloc[-1]
+            prev_price = data['Close'].iloc[-2]
+            color = "#00ff00" if last_price >= prev_price else "#ff4b4b"
+            
+            # ब्रोकरेज ऐप जैसा प्राइस टिकर
+            st.markdown(f"""
+                <div style='background: #161b22; padding: 15px; border-radius: 10px; border-left: 5px solid {color};'>
+                    <h4 style='margin:0; color: #8b949e;'>{label}</h4>
+                    <h1 style='margin:0; color: {color};'>₹{last_price:,.2f}</h1>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # कैंडलस्टिक चार्ट
+            fig = go.Figure(data=[go.Candlestick(
+                x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'],
+                name='Price', increasing_line_color='#00ff00', decreasing_line_color='#ff4b4b'
+            )])
+            
+            # EMA लाइन्स जोड़ना
+            fig.add_trace(go.Scatter(x=data.index, y=data['EMA9'], name="9 EMA", line=dict(color='orange', width=1.5)))
+            fig.add_trace(go.Scatter(x=data.index, y=data['EMA21'], name="21 EMA", line=dict(color='blue', width=1.5)))
+            
+            fig.update_layout(
+                template="plotly_dark", height=500,
+                margin=dict(l=0,r=0,t=0,b=0),
+                xaxis_rangeslider_visible=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-# --- ₿ LIVE CRYPTO (1s Update) ---
-with col2:
-    st.header("₿ Crypto Live")
-    cr_t = st.text_input("Symbol:", "BTC-USD")
-    data_cr = get_1s_data(cr_t)
-    if data_cr is not None:
-        price_c = data_cr['Close'].iloc[-1]
-        st.metric(f"{cr_t} LIVE", f"${price_c:,.2f}")
-        
-        fig_c = go.Figure(data=[go.Candlestick(x=data_cr.index, open=data_cr['Open'], high=data_cr['High'], low=data_cr['Low'], close=data_cr['Close'])])
-        fig_c.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
-        st.plotly_chart(fig_c, use_container_width=True)
+# --- दोनों मार्केट चालू करें ---
+draw_terminal("^NSEI", "NIFTY 50", col1)
+draw_terminal("BTC-USD", "BITCOIN", col2)
 
-# --- 🏆 10-YEAR MULTI-BAGGER SCANNER (पॉइंट 12) ---
-st.divider()
-st.subheader("🏆 10-Year Wealth Creators (Long Term Analysis)")
-lt_stocks = ["TCS.NS", "TITAN.NS", "RELIANCE.NS", "ASIANPAINT.NS"]
-lt_cols = st.columns(4)
-
-for i, t in enumerate(lt_stocks):
-    # 10 साल का डेटा स्कैन
-    df_lt = get_1s_data(t, period="10y", interval="1d")
-    if df_lt is not None:
-        growth = ((df_lt['Close'].iloc[-1] - df_lt['Close'].iloc[0]) / df_lt['Close'].iloc[0]) * 100
-        with lt_cols[i]:
-            st.write(f"**{t.split('.')[0]}**")
-            st.write(f"10Y Growth: {growth:.1f}%")
-            if growth > 500: st.success("💎 MULTI-BAGGER")
-
-if st.sidebar.button("जावेद रिपोर्ट दो 🎤"):
-    speak_text("राजवीर सर, जार्विस अब हर एक सेकंड में बाज़ार की धड़कन महसूस कर रहा है।")
+# बॉटम बार
+st.markdown("---")
+st.caption("Jarvis Data Status: Live (1s Polling) | Strategy: 9/21 EMA Cross")
