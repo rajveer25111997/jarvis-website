@@ -5,78 +5,71 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 import base64
 
-# 1. सुपर-फ़ास्ट 3s रिफ्रेश और डार्क थीम
-st.set_page_config(page_title="Jarvis Super AI", layout="wide")
-st_autorefresh(interval=3000, key="jarvis_super_refresh")
+# 1. 'ब्रह्मांड की गति' - 1 सेकंड रिफ्रेश
+st.set_page_config(page_title="Jarvis 1s Ultra-Fast", layout="wide")
+st_autorefresh(interval=1000, key="jarvis_1s_refresh") # 1000ms = 1 Second
 
-# --- वॉइस फंक्शन ---
 def speak_text(text):
     audio_html = f"""<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=hi&client=tw-ob" type="audio/mpeg"></audio>"""
     st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- कैंडलस्टिक पैटर्न डिटेक्टर (पॉइंट 2) ---
-def detect_patterns(df):
-    patterns = []
-    if len(df) < 2: return ""
-    last = df.iloc[-1]
-    body = abs(last['Close'] - last['Open'])
-    wick_h = last['High'] - max(last['Open'], last['Close'])
-    wick_l = min(last['Open'], last['Close']) - last['Low']
-    
-    if wick_l > (body * 2): patterns.append("🔨 Hammer (Bullish)")
-    if wick_h > (body * 2): patterns.append("🏹 Shooting Star (Bearish)")
-    if body < ( (last['High'] - last['Low']) * 0.1): patterns.append("⚖️ Doji (Confusion)")
-    return ", ".join(patterns) if patterns else "Scanning..."
-
-# --- स्मार्ट डेटा हंटर ---
-@st.cache_data(ttl=2)
-def get_jarvis_data(ticker, interval):
+# --- डेटा इंजन (1 सेकंड की लोडिंग के लिए ऑप्टिमाइज्ड) ---
+@st.cache_data(ttl=1) # सिर्फ 1 सेकंड की याददाश्त
+def get_1s_data(ticker, period="1d", interval="1m"):
     try:
-        df = yf.download(ticker, period="2d", interval=interval, progress=False)
+        df = yf.download(ticker, period=period, interval=interval, progress=False)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-        df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
         return df
     except: return None
 
-# --- UI Layout ---
-st.title("🤖 JARVIS : Advanced AI Terminal")
+st.title("🤖 JARVIS : Extreme 1s Live Terminal")
 
-# न्यूज़ टिकर (पॉइंट 5)
-st.markdown("<marquee style='color: #FF4B4B; font-weight: bold;'>⚠️ अलर्ट: जार्विस लाइव मार्केट स्कैन कर रहा है... | निफ्टी रेजिस्टेंस: 24,500 | बिटकॉइन सपोर्ट: $88,000</marquee>", unsafe_allow_html=True)
-
-# साइडबार कंट्रोल्स
-st.sidebar.header("🕹️ Control Panel")
-timeframe = st.sidebar.selectbox("टाइमफ्रेम चुनें (पॉइंट 7):", ["1m", "5m", "15m", "1h"], index=0)
-if st.sidebar.button("जावेद को बुलाओ 🎤"):
-    speak_text("स्वागत है राजवीर सर, जार्विस के सुपर एआई मोड में आपका स्वागत है")
+# --- टॉप बार: न्यूज़ और अलर्ट ---
+st.markdown("<marquee style='color: #00FF00; font-weight: bold; background: #1E1E1E; padding: 5px;'>🚀 जार्विस हर 1 सेकंड में बाज़ार को स्कैन कर रहा है... लाइव डेटा फीड एक्टिव है... </marquee>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
-# मार्केट प्रोसेसिंग
-def process_advanced_market(ticker, label, col):
-    data = get_jarvis_data(ticker, timeframe)
-    with col:
-        if data is not None and len(data) > 5:
-            # पैटर्न और सिग्नल
-            pattern = detect_patterns(data)
-            e9, e21 = data['EMA9'].iloc[-1], data['EMA21'].iloc[-1]
-            
-            # विजुअल कार्ड्स
-            c1, c2 = st.columns(2)
-            c1.metric(f"{label} Price", f"{data['Close'].iloc[-1]:,.2f}")
-            c2.info(f"पैटर्न: {pattern}")
-            
-            # चार्ट
-            fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'])])
-            fig.add_trace(go.Scatter(x=data.index, y=data['EMA9'], name="9 EMA", line=dict(color='orange')))
-            fig.add_trace(go.Scatter(x=data.index, y=data['EMA21'], name="21 EMA", line=dict(color='blue')))
-            fig.update_layout(template="plotly_dark", height=450, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=0,b=0))
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # वॉइस अलर्ट लॉजिक
-            if e9 > e21 and data['EMA9'].iloc[-2] <= data['EMA21'].iloc[-2]:
-                speak_text(f"सर, {label} में खरीदारी का सिग्नल मिला है और {pattern} भी दिख रहा है")
+# --- 🇮🇳 LIVE NSE (1s Update) ---
+with col1:
+    st.header("🇮🇳 India Live")
+    in_t = st.text_input("Symbol:", "^NSEI")
+    data_in = get_1s_data(in_t)
+    if data_in is not None:
+        price = data_in['Close'].iloc[-1]
+        st.metric(f"{in_t} LIVE", f"₹{price:,.2f}")
+        
+        fig = go.Figure(data=[go.Candlestick(x=data_in.index, open=data_in['Open'], high=data_in['High'], low=data_in['Low'], close=data_in['Close'])])
+        fig.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
+        st.plotly_chart(fig, use_container_width=True)
 
-process_advanced_market("^NSEI", "NIFTY 50", col1)
-process_advanced_market("BTC-USD", "BITCOIN", col2)
+# --- ₿ LIVE CRYPTO (1s Update) ---
+with col2:
+    st.header("₿ Crypto Live")
+    cr_t = st.text_input("Symbol:", "BTC-USD")
+    data_cr = get_1s_data(cr_t)
+    if data_cr is not None:
+        price_c = data_cr['Close'].iloc[-1]
+        st.metric(f"{cr_t} LIVE", f"${price_c:,.2f}")
+        
+        fig_c = go.Figure(data=[go.Candlestick(x=data_cr.index, open=data_cr['Open'], high=data_cr['High'], low=data_cr['Low'], close=data_cr['Close'])])
+        fig_c.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
+        st.plotly_chart(fig_c, use_container_width=True)
+
+# --- 🏆 10-YEAR MULTI-BAGGER SCANNER (पॉइंट 12) ---
+st.divider()
+st.subheader("🏆 10-Year Wealth Creators (Long Term Analysis)")
+lt_stocks = ["TCS.NS", "TITAN.NS", "RELIANCE.NS", "ASIANPAINT.NS"]
+lt_cols = st.columns(4)
+
+for i, t in enumerate(lt_stocks):
+    # 10 साल का डेटा स्कैन
+    df_lt = get_1s_data(t, period="10y", interval="1d")
+    if df_lt is not None:
+        growth = ((df_lt['Close'].iloc[-1] - df_lt['Close'].iloc[0]) / df_lt['Close'].iloc[0]) * 100
+        with lt_cols[i]:
+            st.write(f"**{t.split('.')[0]}**")
+            st.write(f"10Y Growth: {growth:.1f}%")
+            if growth > 500: st.success("💎 MULTI-BAGGER")
+
+if st.sidebar.button("जावेद रिपोर्ट दो 🎤"):
+    speak_text("राजवीर सर, जार्विस अब हर एक सेकंड में बाज़ार की धड़कन महसूस कर रहा है।")
