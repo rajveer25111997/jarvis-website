@@ -1,82 +1,65 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
+import base64
 
-# 1. पेज सेटअप - ब्रोकरेज ऐप जैसा क्लीन लुक
-st.set_page_config(page_title="Jarvis Live Terminal", layout="wide", initial_sidebar_state="collapsed")
-st_autorefresh(interval=1000, key="jarvis_fast_tick") # 1 सेकंड की टिक
+# सेटअप
+st.set_page_config(page_title="Jarvis Portfolio Guard", layout="wide")
+st_autorefresh(interval=5000, key="jarvis_portfolio_tick")
 
-# CSS: स्क्रीन को डार्क और प्रोफेशनल बनाने के लिए
-st.markdown("""
-    <style>
-    .main { background-color: #0d1117; }
-    div[data-testid="stMetricValue"] { font-size: 35px; color: #00ff00; }
-    </style>
-    """, unsafe_allow_html=True)
+def speak_text(text):
+    audio_html = f"""<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=hi&client=tw-ob" type="audio/mpeg"></audio>"""
+    st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- डेटा लोडर (केवल लाइव डेटा पर फोकस) ---
-@st.cache_data(ttl=1)
-def get_live_tick(ticker):
-    try:
-        df = yf.download(ticker, period="1d", interval="1m", progress=False)
-        if df.empty:
-            df = yf.download(ticker, period="5d", interval="5m", progress=False)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+# --- आपके पोर्टफोलियो की लिस्ट (यहाँ आप नए नाम जोड़ सकते हैं) ---
+my_portfolio = ["RVNL.NS", "TATASTEEL.NS", "RELIANCE.NS", "IRFC.NS"]
+
+st.title("🤖 JARVIS : My Portfolio Watchdog")
+
+# पोर्टफोलियो समरी
+st.subheader("📋 आपके स्टॉक्स पर जार्विस की नज़र")
+p_cols = st.columns(len(my_portfolio))
+
+for i, ticker in enumerate(my_portfolio):
+    stock_data = yf.download(ticker, period="1d", interval="1m", progress=False)
+    
+    if not stock_data.empty:
+        curr_p = stock_data['Close'].iloc[-1]
+        prev_p = stock_data['Open'].iloc[0]
+        p_change = ((curr_p - prev_p) / prev_p) * 100
         
-        # 9/21 EMA (आपकी स्ट्रेटजी)
-        df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-        df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-        return df
-    except:
-        return None
-
-# --- टॉप हेडर ---
-st.markdown("<h2 style='text-align: center; color: white;'>🤖 JARVIS : Live Market Feed</h2>", unsafe_allow_html=True)
-
-col1, col2 = st.columns(2)
-
-def draw_terminal(ticker, label, column):
-    data = get_live_tick(ticker)
-    with column:
-        if data is not None:
-            last_price = data['Close'].iloc[-1]
-            prev_price = data['Close'].iloc[-2]
-            color = "#00ff00" if last_price >= prev_price else "#ff4b4b"
-            
-            # ब्रोकरेज ऐप जैसा प्राइस टिकर
+        with p_cols[i]:
+            # डिज़ाइनर कार्ड
+            color = "green" if p_change >= 0 else "red"
             st.markdown(f"""
-                <div style='background: #161b22; padding: 15px; border-radius: 10px; border-left: 5px solid {color};'>
-                    <h4 style='margin:0; color: #8b949e;'>{label}</h4>
-                    <h1 style='margin:0; color: {color};'>₹{last_price:,.2f}</h1>
+                <div style='border: 2px solid {color}; padding: 10px; border-radius: 10px; text-align: center;'>
+                    <h4 style='margin:0;'>{ticker.split('.')[0]}</h4>
+                    <h2 style='margin:0; color:{color};'>₹{curr_p:,.2f}</h2>
+                    <p style='margin:0; color:{color};'>{p_change:.2f}%</p>
                 </div>
             """, unsafe_allow_html=True)
             
-            # कैंडलस्टिक चार्ट
-            fig = go.Figure(data=[go.Candlestick(
-                x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'],
-                name='Price', increasing_line_color='#00ff00', decreasing_line_color='#ff4b4b'
-            )])
-            
-            # EMA लाइन्स जोड़ना
-            fig.add_trace(go.Scatter(x=data.index, y=data['EMA9'], name="9 EMA", line=dict(color='orange', width=1.5)))
-            fig.add_trace(go.Scatter(x=data.index, y=data['EMA21'], name="21 EMA", line=dict(color='blue', width=1.5)))
-            
-            fig.update_layout(
-                template="plotly_dark", height=500,
-                margin=dict(l=0,r=0,t=0,b=0),
-                xaxis_rangeslider_visible=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # जार्विस का क्रिटिकल अलर्ट (अगर 3% से ज्यादा हलचल हो)
+            if abs(p_change) > 3.0:
+                st.warning(f"⚠️ {ticker} में बड़ी हलचल!")
+                speak_text(f"राजवीर सर, आपके पोर्टफोलियो स्टॉक {ticker} में भारी उतार चढ़ाव हो रहा है")
 
-# --- दोनों मार्केट चालू करें ---
-draw_terminal("^NSEI", "NIFTY 50", col1)
-draw_terminal("BTC-USD", "BITCOIN", col2)
+st.divider()
 
-# बॉटम बार
-st.markdown("---")
-st.caption("Jarvis Data Status: Live (1s Polling) | Strategy: 9/21 EMA Cross")
+# --- पोर्टफोलियो एनालिसिस इंजन ---
+st.subheader("🔍 जार्विस एनालिसिस: आज क्या बेचें, क्या रखें?")
+for t in my_portfolio:
+    df = yf.download(t, period="5d", interval="15m", progress=False)
+    if not df.empty:
+        # 9/21 EMA चेक
+        df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
+        df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
+        
+        last_c = df['Close'].iloc[-1]
+        e9 = df['E9'].iloc[-1]
+        
+        if last_c > e9:
+            st.write(f"✅ **{t}:** होल्ड रखें, स्टॉक मजबूत दिख रहा है।")
+        else:
+            st.write(f"❌ **{t}:** कमजोरी के संकेत हैं, स्टॉप-लॉस का ध्यान रखें।")
