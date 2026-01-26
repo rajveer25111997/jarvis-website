@@ -88,8 +88,7 @@ def run_jarvis_web():
         print(f"विवरण: {detail}")
         print("-" * 20)
 
-# --- जार्विस सिग्नल बॉक्स इंजन (सिर्फ कोड) ---
-show_signal_box(data_nifty, "NIFTY 50") 
+# --- जार्विस सिग्नल बॉक्स इंजन (सिर्फ कोड) --- 
 
 def show_signal_box(df, label):
     if df is not None:
@@ -133,3 +132,4 @@ def show_signal_box(df, label):
 
 if __name__ == "__main__":
     run_jarvis_web()
+show_signal_box(data_nifty, "NIFTY 50") 
