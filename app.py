@@ -88,5 +88,47 @@ def run_jarvis_web():
         print(f"विवरण: {detail}")
         print("-" * 20)
 
+# --- जार्विस सिग्नल बॉक्स इंजन (सिर्फ कोड) ---
+
+def show_signal_box(df, label):
+    if df is not None:
+        # 9/21 EMA लॉजिक
+        df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
+        df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
+        
+        curr = df.iloc[-1]
+        prev = df.iloc[-2]
+        price = curr['Close']
+        
+        # 1. बुलिश सिग्नल (CALL)
+        if curr['E9'] > curr['E21'] and prev['E9'] <= prev['E21']:
+            sl = price - 7  # करिश्मा का 7 पॉइंट SL
+            tgt = price + 15 # जार्विस का 15 पॉइंट टारगेट
+            
+            st.markdown(f"""
+                <div style="background-color: #002b1b; padding: 15px; border: 2px solid #00ff00; border-radius: 10px; margin-bottom: 10px;">
+                    <h3 style="color: #00ff00; margin: 0;">🚀 {label} - BUY SIGNAL</h3>
+                    <p style="margin: 5px 0;"><b>Entry:</b> {price:.2f} | <b>SL:</b> {sl:.2f} | <b>Target:</b> {tgt:.2f}</p>
+                    <small style="color: #00ff00;">🛡️ एस्कॉर्ट: मुनाफे को ट्रेल करने के लिए तैयार!</small>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        # 2. बीयरिश सिग्नल (PUT)
+        elif curr['E9'] < curr['E21'] and prev['E9'] >= prev['E21']:
+            sl = price + 7
+            tgt = price - 15
+            
+            st.markdown(f"""
+                <div style="background-color: #2b0000; padding: 15px; border: 2px solid #ff4b4b; border-radius: 10px; margin-bottom: 10px;">
+                    <h3 style="color: #ff4b4b; margin: 0;">📉 {label} - SELL SIGNAL</h3>
+                    <p style="margin: 5px 0;"><b>Entry:</b> {price:.2f} | <b>SL:</b> {sl:.2f} | <b>Target:</b> {tgt:.2f}</p>
+                    <small style="color: #ff4b4b;">🛡️ करिश्मा: रिस्क कंट्रोल में है।</small>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # 3. कोई सिग्नल नहीं
+        else:
+            st.info(f"🔍 {label}: जार्विस ब्रेकआउट ढूँढ रहा है...")
+
 if __name__ == "__main__":
     run_jarvis_web()
