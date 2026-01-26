@@ -5,88 +5,92 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
 
-# 1. सुपर-फास्ट रिफ्रेश (1 सेकंड)
-st.set_page_config(page_title="Jarvis RV Analyst Pro", layout="wide")
-st_autorefresh(interval=1000, key="jarvis_integrated_final")
+# 1. सुपर-फास्ट रिफ्रेश और पेज सेटअप
+st.set_page_config(page_title="Jarvis RV Analyst Fix", layout="wide")
+st_autorefresh(interval=1000, key="jarvis_final_fix")
 
 # --- 🔊 जावेद की आवाज़ ---
 def speak(msg):
     st.markdown(f"""<audio autoplay><source src="https://translate.google.com/translate_tts?ie=UTF-8&q={msg}&tl=hi&client=tw-ob" type="audio/mpeg"></audio>""", unsafe_allow_html=True)
 
-# --- 📊 जावेद का डेटा इंजन (Multi-Source) ---
-@st.cache_data(ttl=1)
-def fetch_data(ticker):
+# --- 📊 स्मार्ट मल्टी-सोर्स डेटा इंजन (The Fix) ---
+def fetch_smart_data(ticker):
+    # रास्ता 1: Primary
     try:
-        df = yf.download(ticker, period="1d", interval="1m", progress=False)
-        if df.empty: return None
-        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        # जावेद की कैलकुलेशन (EMA & RSI)
-        df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
-        df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
-        return df
-    except: return None
+        df = yf.download(ticker, period="1d", interval="1m", progress=False, timeout=2)
+        if not df.empty and len(df) > 1:
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+            return df, "🟢 LIVE", "#00FF00"
+    except: pass
+    
+    # रास्ता 2: Backup
+    try:
+        df = yf.download(ticker, period="5d", interval="2m", progress=False, timeout=2)
+        if not df.empty:
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+            return df.tail(60), "🟡 BACKUP", "#FFFF00"
+    except: pass
+    
+    return None, "🔴 OFFLINE", "#FF0000"
 
 # ==========================================
-# 2. STATUS BAR (सबसे ऊपर)
+# 2. STATUS BAR (पट्टी हमेशा रहेगी)
 # ==========================================
 st.markdown(f"""
     <div style="background-color: #1e1e1e; padding: 10px; border-radius: 5px; border-bottom: 2px solid #444; display: flex; justify-content: space-between;">
         <span style="color: #00FF00; font-weight: bold;">🤖 JARVIS RV SYSTEM: ACTIVE</span>
-        <marquee style="color: #00d4ff; width: 60%;">📢 जावेद एनालिस्ट: निफ्टी 24400 पर बड़ा सपोर्ट है... करिश्मा: स्टॉप लॉस छोटा रखें... एस्कॉर्ट: मुनाफे को लॉक करें...</marquee>
+        <marquee style="color: #00d4ff; width: 60%;">📢 अलर्ट: डेटा सिंक हो रहा है... चार्ट और ऑप्शन चेन नीचे लोड हो रहे हैं... बड़े खिलाड़ी निफ्टी पर नज़र बनाए हुए हैं...</marquee>
         <span style="color: #ffffff;">🕒 {datetime.now().strftime('%H:%M:%S')}</span>
     </div>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. मुख्य लेआउट (दो भाग: सिग्नल/चार्ट और ऑप्शन चेन)
+# 3. मुख्य लेआउट (सब कुछ यहाँ वापस आएगा)
 # ==========================================
 col_main, col_chain = st.columns([2, 1])
 
-# --- निफ्टी डेटा ---
-data = fetch_data("^NSEI")
+data, status, s_color = fetch_smart_data("^NSEI")
 
 if data is not None:
     curr_p = data['Close'].iloc[-1]
-    prev_p = data['Close'].iloc[-2]
     
+    # जावेद का एनालिसिस (EMA)
+    data['E9'] = data['Close'].ewm(span=9, adjust=False).mean()
+    data['E21'] = data['Close'].ewm(span=21, adjust=False).mean()
+
     with col_main:
-        # --- 🚀 यहाँ है सिग्नल (जावेद का आउटपुट) ---
-        if data['E9'].iloc[-1] > data['E21'].iloc[-1] and data['E9'].iloc[-2] <= data['E21'].iloc[-2]:
-            st.markdown(f"<div style='background-color:#00FF00; padding:15px; border-radius:10px; text-align:center;'><h2 style='color:black;'>🚀 BUY SIGNAL ACTIVE (Call)</h2><b>Entry: {curr_p:.2f} | SL: 6 Pts</b></div>", unsafe_allow_html=True)
-            if 'last_s' not in st.session_state or st.session_state.last_s != "BUY":
-                speak("राजवीर सर, जावेद का सिग्नल मिला है। कॉल साइड एंट्री बन रही है।")
-                st.session_state.last_s = "BUY"
-        elif data['E9'].iloc[-1] < data['E21'].iloc[-1] and data['E9'].iloc[-2] >= data['E21'].iloc[-2]:
-            st.markdown(f"<div style='background-color:#FF4B4B; padding:15px; border-radius:10px; text-align:center;'><h2 style='color:white;'>📉 SELL SIGNAL ACTIVE (Put)</h2><b>Entry: {curr_p:.2f} | SL: 6 Pts</b></div>", unsafe_allow_html=True)
-            if 'last_s' not in st.session_state or st.session_state.last_s != "SELL":
-                speak("सर, पुट साइड का सिग्नल है। करिश्मा ने स्टॉप लॉस लगा दिया है।")
-                st.session_state.last_s = "SELL"
+        # --- 🚀 सिग्नल ज़ोन ---
+        if data['E9'].iloc[-1] > data['E21'].iloc[-1]:
+            st.success(f"🚀 BUY ZONE ACTIVE | Price: {curr_p:.2f}")
         else:
-            st.info("🔍 जावेद अभी चार्ट एनालाइज कर रहा है... इंतज़ार करें।")
+            st.error(f"📉 SELL ZONE ACTIVE | Price: {curr_p:.2f}")
 
         # चार्ट
         fig = go.Figure(data=[go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'])])
         fig.add_trace(go.Scatter(x=data.index, y=data['E9'], line=dict(color='orange', width=1), name="EMA 9"))
-        fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
+        fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
         st.plotly_chart(fig, use_container_width=True)
 
     with col_chain:
-        # --- ⛓️ यहाँ है ऑप्शन चेन (Strike Master) ---
-        st.subheader("⛓️ ऑप्शन चेन (Best Strike)")
+        # --- ⛓️ ऑप्शन चेन टेबल ---
+        st.subheader("⛓️ ऑप्शन चेन (ATM)")
         atm = round(curr_p / 50) * 50
-        chain_data = {
-            "Strike": [atm-100, atm-50, atm, atm+50, atm+100],
-            "Type": ["ITM", "ITM", "ATM", "OTM", "OTM"],
-            "Call OI": ["High", "Medium", "V. High", "Low", "V. Low"],
-            "Put OI": ["V. Low", "Low", "High", "Medium", "High"]
-        }
-        st.table(pd.DataFrame(chain_data))
-        st.success(f"🎯 Recommended: {atm} {'CE' if data['E9'].iloc[-1] > data['E21'].iloc[-1] else 'PE'}")
+        chain_df = pd.DataFrame({
+            "Strike": [atm-50, atm, atm+50],
+            "Type": ["ITM", "ATM", "OTM"],
+            "Call OI": ["High", "V. High", "Low"],
+            "Put OI": ["Low", "High", "V. High"]
+        })
+        st.table(chain_df)
+        st.info(f"जावेद टिप: {atm} की स्ट्राइक पर ध्यान दें।")
+else:
+    # अगर डेटा नहीं मिला तो ये दिखेगा
+    with col_main:
+        st.warning("🔄 राजवीर सर, बाज़ार से डेटा कनेक्ट नहीं हो पा रहा है। जार्विस बैकअप सोर्स ढूँढ रहा है...")
+    with col_chain:
+        st.info("डेटा लोड होते ही ऑप्शन चेन यहाँ आ जाएगी।")
 
-# 4. साइडबार (जॉइनर और न्यूज़)
+# 4. साइडबार
 with st.sidebar:
-    st.header("⚙️ जार्विस जॉइनर")
-    st.text_area("नया कोड यहाँ जोड़ें...")
-    st.divider()
-    st.subheader("📰 न्यूज़ जासूस")
-    st.warning("US FED मीटिंग आज रात है, बाज़ार में हलचल रह सकती है।")
+    st.header("⚙️ जार्विस सेटिंग्स")
+    st.write(f"Data Source: **{status}**")
