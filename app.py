@@ -37,7 +37,8 @@ import new_point
 
 # डिक्शनरी के सारे पॉइंट्स को एक-एक करके दिखाओ
 for name, feature in new_point.my_features.items():
-    print(f"Feature Name: {name} | Content: {feature}")
+    print(f"Feature Name: {name} | Content: {feature}") 
+    
 # --- मुख्य टर्मिनल डैशबोर्ड ---
 st.title("🤖 JARVIS : Multi-Source AI Terminal")
 
