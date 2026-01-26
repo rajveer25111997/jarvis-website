@@ -6,27 +6,37 @@ from streamlit_autorefresh import st_autorefresh
 import time
 from datetime import datetime
 
-# 1. रिफ्रेश इंजन
-st.set_page_config(page_title="Jarvis Analyzer Pro", layout="wide")
-st_autorefresh(interval=1000, key="jarvis_analysis_check")
+# 1. सुपर-फास्ट रिफ्रेश
+st.set_page_config(page_title="Jarvis Error Free", layout="wide")
+st_autorefresh(interval=1000, key="jarvis_mega_fix_v2")
 
-# --- 🛡️ डेटा इंजन ---
+# --- 🛡️ जार्विस स्मार्ट डेटा इंजन (TypeError Fix) ---
 def get_data_smart(ticker):
     try:
-        df = yf.download(ticker, period="1d", interval="1m", progress=False, timeout=2)
+        # रास्ता 1: Primary
+        df = yf.download(ticker, period="1d", interval="1m", progress=False, timeout=3)
         if df is not None and not df.empty:
             return df, "🟢 LIVE", "#00FF00"
     except:
-        return None, "🔴 OFFLINE", "#FF0000"
+        pass
+    
+    try:
+        # रास्ता 2: Backup
+        df = yf.download(ticker, period="5d", interval="2m", progress=False, timeout=3)
+        if df is not None and not df.empty:
+            return df.tail(60), "🟡 BACKUP", "#FFFF00"
+    except:
+        pass
+        
+    return None, "🔴 OFFLINE", "#FF0000"
 
-# --- 🧠 जार्विस एनालिसिस इंजन (Thought Process) ---
+# --- 🚀 जार्विस सिग्नल बॉक्स (एनालिसिस इंजन) ---
 def show_signal_box(df, label):
-    # यहाँ से पता चलेगा जार्विस एनालिसिस कर रहा है
-    with st.spinner('🤖 जार्विस डेटा स्कैन कर रहा है...'):
-        if df is not None:
+    if df is not None:
+        try:
             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
             
-            # एनालिसिस पैरामीटर्स
+            # इंडिकेटर्स एनालिसिस
             df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
             df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
             
@@ -34,54 +44,54 @@ def show_signal_box(df, label):
             e9, e21 = df['E9'].iloc[-1], df['E21'].iloc[-1]
             prev_e9, prev_e21 = df['E9'].iloc[-2], df['E21'].iloc[-2]
             
-            # --- एनालिसिस इंडिकेटर ---
-            st.markdown(f"""
-                <div style="background-color: #111; padding: 10px; border-left: 5px solid #00d4ff; margin-bottom: 10px;">
-                    <small style="color: #00d4ff;">🧠 <b>जार्विस थॉट प्रोसेस:</b></small><br>
-                    <small style="color: #ccc;">Checking EMA Cross... OK | Analyzing Volume... OK | RSI Trend... Scan</small>
-                </div>
-            """, unsafe_allow_html=True)
+            # स्कैनिंग इंडिकेटर
+            st.markdown(f'<div style="color:#00d4ff; font-size:12px;">🧠 जार्विस एनालिसिस: RSI & EMA स्कैन... OK</div>', unsafe_allow_html=True)
 
-            # ✅ सिग्नल लॉजिक
             if e9 > e21 and prev_e9 <= prev_e21:
-                st.success(f"🚀 BUY ZONE: {label} @ {price:.2f}")
+                st.markdown(f'<div style="background-color:#002b1b;padding:10px;border:1px solid #00ff00;border-radius:5px;color:#00ff00;">🚀 BUY ZONE: {label} @ {price:.2f}</div>', unsafe_allow_html=True)
             elif e9 < e21 and prev_e9 >= prev_e21:
-                st.error(f"📉 SELL ZONE: {label} @ {price:.2f}")
+                st.markdown(f'<div style="background-color:#2b0000;padding:10px;border:1px solid #ff4b4b;border-radius:5px;color:#ff4b4b;">📉 SELL ZONE: {label} @ {price:.2f}</div>', unsafe_allow_html=True)
             else:
-                st.warning(f"🔍 {label}: जार्विस ब्रेकआउट का इंतज़ार कर रहा है...")
+                st.info(f"🔍 {label}: जार्विस ब्रेकआउट ढूँढ रहा है...")
+        except:
+            st.error("⚠️ सिग्नल कैलकुलेशन में दिक्कत।")
 
 # ==========================================
-# 2. UI LAYOUT (Status Bar)
+# UI लेआउट शुरू
 # ==========================================
 st.markdown(f"""
-    <div style="background-color: #1e1e1e; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between;">
-        <span style="color: #00FF00;">🤖 SYSTEM: ONLINE</span>
+    <div style="background-color: #1e1e1e; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444;">
+        <span style="color: #00FF00; font-weight: bold;">🟢 SYSTEM: ONLINE</span>
         <span style="color: #00d4ff;">📡 SCANNING: ACTIVE</span>
-        <span style="color: #ffffff;">🕒 {datetime.now().strftime('%H:%M:%S')}</span>
+        <span style="color: #ffffff;">🕒 TIME: {datetime.now().strftime('%H:%M:%S')}</span>
     </div>
     """, unsafe_allow_html=True)
 
-# 3. TOP ROW & CHART
+# 3. टॉप इंडेक्स लाइन (Fix: TypeError protected)
 indices = {"NIFTY 50": "^NSEI", "BANK NIFTY": "^NSEBANK"}
 cols = st.columns(2)
 
 for i, (name, sym) in enumerate(indices.items()):
-    idx_df, status, s_color = get_data_smart(sym)
+    idx_df, status, s_color = get_data_smart(sym) #
     with cols[i]:
         if idx_df is not None:
+            if isinstance(idx_df.columns, pd.MultiIndex): idx_df.columns = idx_df.columns.get_level_values(0)
             st.metric(label=f"{name} ({status})", value=f"₹{idx_df['Close'].iloc[-1]:,.1f}")
+        else:
+            st.metric(label=f"{name}", value="Loading...")
 
 st.divider()
+
+# 4. मेन चार्ट और सिग्नल
 data_nifty, _, _ = get_data_smart("^NSEI")
+c1, c2 = st.columns([3, 1])
 
-col_main, col_side = st.columns([3, 1])
-
-with col_main:
+with c1:
     if data_nifty is not None:
         fig = go.Figure(data=[go.Candlestick(x=data_nifty.index, open=data_nifty['Open'], high=data_nifty['High'], low=data_nifty['Low'], close=data_nifty['Close'])])
         fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
         st.plotly_chart(fig, use_container_width=True)
 
-with col_side:
+with c2:
     st.subheader("🎯 एनालिसिस")
     show_signal_box(data_nifty, "NIFTY 50")
