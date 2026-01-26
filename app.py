@@ -114,3 +114,38 @@ with st.sidebar:
     st.text_area("नया प्लग-इन यहाँ डालें...")
     st.divider()
     st.caption("Developed with Rajveer Sir | Version: Ultimate 34")
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
+import pytz  # समय सही करने के लिए नई लाइब्रेरी
+
+# --- 🎯 पॉइंट 35: समय का शुद्धिकरण (IST Time Correction) ---
+def get_indian_time():
+    IST = pytz.timezone('Asia/Kolkata')
+    return datetime.now(IST)
+
+# --- मार्केट गार्जियन चेक (Updated with IST) ---
+def check_market_status():
+    now_ist = get_indian_time().time()
+    market_open = datetime.strptime("09:15", "%H:%M").time()
+    market_close = datetime.strptime("15:30", "%H:%M").time()
+    
+    if now_ist < market_open:
+        return "⏳ PRE-MARKET", "#FFFF00"
+    elif now_ist > market_close:
+        return "🌙 CLOSED", "#FF4B4B"
+    else:
+        return "🔥 LIVE", "#00FF00"
+
+# --- डैशबोर्ड डिस्प्ले (Header Update) ---
+ist_now = get_indian_time()
+m_status, m_color = check_market_status()
+
+st.markdown(f"""
+    <div style="background-color: #0e1117; padding: 15px; border-radius: 10px; border: 1px solid {m_color}; display: flex; justify-content: space-between;">
+        <span style="color: {m_color}; font-weight: bold;">🤖 JARVIS RV OS | {m_status}</span>
+        <span style="color: white;">🇮🇳 IST समय: {ist_now.strftime('%I:%M:%S %p')}</span>
+    </div>
+""", unsafe_allow_html=True)
