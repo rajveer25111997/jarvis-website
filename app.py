@@ -33,11 +33,7 @@ def fetch_live_data(ticker):
     except:
         st.error("🚨 जार्विस अलर्ट: सारे डेटा सोर्स बंद हैं!")
         return None, None
-import new_point
-
-# डिक्शनरी के सारे पॉइंट्स को एक-एक करके दिखाओ
-for name, feature in new_point.my_features.items():
-    print(f"Feature Name: {name} | Content: {feature}") 
+ 
     
 # --- मुख्य टर्मिनल डैशबोर्ड ---
 st.title("🤖 JARVIS : Multi-Source AI Terminal")
