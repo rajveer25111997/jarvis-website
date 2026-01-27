@@ -162,4 +162,29 @@ else:
     df = yf.download(ticker, period="5d", interval="5m", progress=False)
 
 # अब इसके नीचे आपका चार्ट और बाकी कोडिंग चलेगी...
+# --- 🎯 पॉइंट 38: मल्टी-रूट डेटा ब्रिज ---
+@st.cache_data(ttl=1)
+def fetch_master_data_v2(ticker):
+    # रास्ता 1: Primary Server (Super Fast)
+    try:
+        df = yf.download(ticker, period="1d", interval="1m", progress=False, timeout=2)
+        if not df.empty: return df, "🟢 PRIMARY", "#00FF00"
+    except:
+        pass # अगर फेल हुआ तो अगले रास्ते पर जाओ
+
+    # रास्ता 2: Backup Server (Secondary Route)
+    try:
+        # यहाँ जार्विस थोड़े बड़े इंटरवल का उपयोग करेगा ताकि डेटा पक्का मिले
+        df = yf.download(ticker, period="2d", interval="2m", progress=False)
+        if not df.empty: return df, "🟡 BACKUP ACTIVE", "#FFFF00"
+    except:
+        pass
+
+    # रास्ता 3: इमरजेंसी रिकवरी (Last Hope)
+    try:
+        df = yf.download(ticker, period="5d", interval="5m", progress=False)
+        return df, "🟠 EMERGENCY MODE", "#FFA500"
+    except:
+        return None, "🔴 ALL ROUTES FAILED", "#FF4B4B"
+
     
