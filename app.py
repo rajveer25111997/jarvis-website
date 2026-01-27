@@ -5,8 +5,8 @@ import plotly.graph_objects as go
 from datetime import datetime
 import pytz
 
-# --- 🎯 पॉइंट 11, 20, 21, 34: कोर सेटिंग्स ---
-st.set_page_config(page_title="JARVIS RV 39-POINTS", layout="wide")
+# --- 🎯 कोर सेटिंग्स (पॉइंट 11, 20, 21, 34) ---
+st.set_page_config(page_title="JARVIS RV ULTIMATE", layout="wide")
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=1000, key="jarvis_final_pulse")
 
@@ -43,7 +43,7 @@ ist_now = get_ist()
 st.markdown(f"""
     <div style="background-color: #0e1117; padding: 15px; border-radius: 10px; border: 1px solid {color}; display: flex; justify-content: space-between; align-items: center;">
         <span style="color: {color}; font-weight: bold; font-size: 22px;">🤖 JARVIS RV OS | {label}</span>
-        <marquee style="color: #00d4ff; width: 45%;">🚀 39 पॉइंट्स एक्टिवेटेड | जावेद-करिश्मा रणनीति तैनात | FII/DII ट्रैकिंग ऑन</marquee>
+        <marquee style="color: #00d4ff; width: 45%;">🚀 39 पॉइंट्स एक्टिवेटेड | जावेद-करिश्मा रणनीति तैनात | नो-एरर मोड ऑन</marquee>
         <span style="color: white; font-weight: bold;">🇮🇳 IST: {ist_now.strftime('%I:%M:%S %p')}</span>
     </div>
 """, unsafe_allow_html=True)
@@ -52,8 +52,9 @@ st.markdown(f"""
 ticker = "^NSEI" 
 df, route = fetch_hunter(ticker)
 
-if df is not None:
-    # --- पॉइंट 1, 27, 29, 31, 32: जावेद का दिमाग ---
+# --- 🛠️ पॉइंट 39 FIX: कम से कम 2 कैंडल होने पर ही काम शुरू करो ---
+if df is not None and len(df) > 2:
+    # जावेद का दिमाग (EMA 9/21)
     df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
     df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
     
@@ -61,18 +62,17 @@ if df is not None:
     col_main, col_side = st.columns([2, 1])
     
     with col_main:
-        # पॉइंट 39: ऑटो SL/TGT लॉजिक
+        # सिग्नल लॉजिक
         sig = "WAIT"
         if curr['E9'] > curr['E21'] and prev['E9'] <= prev['E21']: sig = "BUY"
         elif curr['E9'] < curr['E21'] and prev['E9'] >= prev['E21']: sig = "SELL"
         
         if sig != "WAIT":
-            sl = curr['Close'] - 30 if sig == "BUY" else curr['Close'] + 30 # पॉइंट 3: 30 point buffer
+            sl = curr['Close'] - 30 if sig == "BUY" else curr['Close'] + 30
             tgt = curr['Close'] + 60 if sig == "BUY" else curr['Close'] - 60
-            st.success(f"🚀 {sig} जैकपॉट! (Acc: 95%) | SL: {sl:.2f} | TGT: {tgt:.2f}")
-            # st.toast("सिग्नल मिल गया है सर!") # पॉइंट 12: वॉइस/अलर्ट
+            st.success(f"🚀 {sig} जैकपॉट! | SL: {sl:.2f} | TGT: {tgt:.2f}")
         else:
-            st.info("🧐 जार्विस स्कैन कर रहा है... शांति बनाए रखें।")
+            st.info("🧐 जार्विस बाज़ार को स्कैन कर रहा है... शांति बनाए रखें।")
 
         # चार्ट (पॉइंट 15)
         fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
@@ -82,10 +82,9 @@ if df is not None:
         st.plotly_chart(fig, use_container_width=True)
 
     with col_side:
-        # पॉइंट 13, 30: रिस्क और व्हेल
         st.subheader("🛡️ कंट्रोल रूम")
         risk = st.number_input("रिस्क बजट (₹):", 500)
-        st.metric("Lots", max(1, (risk//6)//25))
+        st.metric("Lots (Nifty)", max(1, (risk//6)//25))
         
         # पॉइंट 30: व्हेल ट्रैकर
         vol_active = df['Volume'].iloc[-1] > df['Volume'].tail(10).mean() * 1.5
@@ -96,7 +95,12 @@ if df is not None:
         st.subheader("🩺 पोर्टफोलियो")
         st.caption("RVNL & TATA STEEL: ✅ HOLD")
         st.write(f"डेटा रूट: {route}")
+else:
+    # अगर अभी मार्केट खुला ही है (Error-Prevention Mode)
+    st.warning("⏳ राजवीर सर, जार्विस पर्याप्त डेटा (कम से कम 3 मिनट) इकट्ठा कर रहा है। कृपया रुकें...")
+    if df is not None:
+        st.write(f"अभी केवल {len(df)} कैंडल बनी हैं।")
 
 # --- फुटर ---
 st.divider()
-st.caption("Jarvis RV OS v8.0 | 39 Points Ultimate Edition | Good Luck Rajveer Sir!")
+st.caption("Jarvis RV OS v10.0 | Ultimate 39 Points | Zero-Error Market Launch")
