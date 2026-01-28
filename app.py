@@ -3,21 +3,14 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 import time
+import warnings
 
-# --- 🎯 1. पेज सेटअप ---
+# --- 🎯 1. सिस्टम सेटअप ---
+warnings.filterwarnings('ignore')
 st.set_page_config(page_title="JARVIS RV OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 🛠️ 2. CSS - झपकने को रोकने के लिए मैजिक कोड ---
-st.markdown("""
-    <style>
-    .block-container { padding-top: 2rem; }
-    div[data-testid="stMetricValue"] > div { font-size: 25px; }
-    iframe { visibility: visible !important; }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 🛡️ 3. डेटा हंटर ---
-def fetch_data(ticker):
+# --- 🛡️ 2. डेटा रिकवरी इंजन ---
+def fetch_market_data(ticker):
     try:
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
         if not df.empty:
@@ -25,48 +18,51 @@ def fetch_data(ticker):
             return df
     except: return None
 
-# --- 🔍 4. फिक्स्ड हिस्सा (यह कभी नहीं झपकेगा) ---
+# --- 🔊 3. वॉइस इंजन ---
+def play_voice(text):
+    js = f"<script>var m = new SpeechSynthesisUtterance('{text}'); window.speechSynthesis.speak(m);</script>"
+    st.components.v1.html(js, height=0)
+
+# --- 🔍 4. फिक्स्ड हेडर (यह कभी नहीं बदलेगा) ---
 st.markdown("<h1 style='text-align:center; color:#00ff00; margin:0;'>🤖 JARVIS RV OS</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:white;'>STABLE COMMAND CENTER</p>", unsafe_allow_html=True)
 
-search_query = st.text_input("🔍 Search Stock or Index:", placeholder="यहाँ लिखें...", key="fixed_sarsbar")
-
+# इंडेक्स सिलेक्शन (Static)
 indices = {
     "NIFTY 50": {"sym": "^NSEI", "gap": 50},
     "BANK NIFTY": {"sym": "^NSEBANK", "gap": 100},
     "FIN NIFTY": {"sym": "NIFTY_FIN_SERVICE.NS", "gap": 50}
 }
-selected_idx = st.selectbox("🎯 Target Index:", list(indices.keys()))
+idx_choice = st.selectbox("🎯 Target Index:", list(indices.keys()))
 
-# --- 🏗️ 5. लाइव एरिया (यही हिस्सा अपडेट होगा) ---
-live_dashboard = st.empty()
+# --- 🏗️ 5. मुख्य लाइव कंटेनर (Duplicate Element Error से बचने के लिए) ---
+# हम सिर्फ एक ही बार empty कंटेनर बनाएंगे
+main_container = st.empty()
 
-# --- 🚀 6. बैकग्राउंड लूप (असली समाधान) ---
-# यह लूप बिना पेज रिफ्रेश किए सिर्फ 'live_dashboard' को अपडेट करेगा
+# --- 🚀 6. स्मार्ट लूप (बैकग्राउंड में) ---
 while True:
-    ticker = indices[selected_idx]["sym"]
-    gap = indices[selected_idx]["gap"]
-    df = fetch_data(ticker)
+    ticker = indices[idx_choice]["sym"]
+    gap = indices[idx_choice]["gap"]
+    df = fetch_market_data(ticker)
     
     if df is not None and not df.empty:
         ltp = round(df['Close'].iloc[-1], 2)
         atm_strike = round(ltp / gap) * gap
         
-        # 9/21 EMA
+        # इंडीकेटर्स
         df['E9'] = df['Close'].ewm(span=9).mean()
         df['E21'] = df['Close'].ewm(span=21).mean()
         is_buy = df['E9'].iloc[-1] > df['E21'].iloc[-1]
         sig_text = "BUY (CALL) ACTIVE" if is_buy else "SELL (PUT) ACTIVE"
         sig_color = "#00ff00" if is_buy else "#ff4b4b"
 
-        # लाइव डैशबोर्ड के अंदर डेटा डालना
-        with live_dashboard.container():
+        # कंटेनर को साफ़ करके नया डेटा डालना
+        with main_container.container():
             # 📊 चार्ट और ऑप्शन चैन
             col_chart, col_oi = st.columns([2, 1])
             with col_chart:
                 fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
                 fig.update_layout(template="plotly_dark", height=400, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=0,b=0))
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig, use_container_width=True, key="chart_fixed") # Key fix
             
             with col_oi:
                 st.markdown(f"""
@@ -77,7 +73,7 @@ while True:
                             <span style="color:white; font-size:32px; font-weight:bold;">{atm_strike}</span>
                             <b style="color:#ff4b4b; font-size:24px;">PE</b>
                         </div>
-                        <h2 style="color:#ffff00;">₹ 125.50</h2>
+                        <h2 style="color:#ffff00;">₹ LIVE DATA</h2>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -89,13 +85,12 @@ while True:
                 </div>
             """, unsafe_allow_html=True)
 
-            # 🛰️ स्टॉक स्कैनर
+            # 🛰️ स्टॉक स्कैनर (Mini Boxes)
             st.write("---")
-            st.markdown("### 🛰️ AI SCANNER")
             sc1, sc2, sc3 = st.columns(3)
             for i, s in enumerate(["RELIANCE", "HDFC BANK", "TCS"]):
                 with [sc1, sc2, sc3][i]:
                     st.success(f"{s}: BULLISH")
     
-    # 2 सेकंड का इंतज़ार (बिना पेज रिफ्रेश किए)
+    # 2 सेकंड का विराम (रिफ्रेश)
     time.sleep(2)
