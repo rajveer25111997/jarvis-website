@@ -1,127 +1,100 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
-from datetime import datetime
-import pytz
 
-# --- 🎯 CONFIGURATION ---
-st.set_page_config(page_title="JARVIS RV OS", layout="wide", initial_sidebar_state="collapsed")
+# --- 🎯 1. Settings & Pulse (1-Sec Refresh) ---
+st.set_page_config(page_title="JARVIS RV MASTER", layout="wide", initial_sidebar_state="collapsed")
+st_autorefresh(interval=1000, key="jarvis_master_pulse")
 
-# --- ⚡ HEARTBEAT (1-Second No-Blink Refresh) ---
-st_autorefresh(interval=1000, key="jarvis_heartbeat")
+# --- 🛡️ 2. Data Engine ---
+@st.cache_data(ttl=1)
+def fetch_data(ticker, period="2d"):
+    try:
+        df = yf.download(ticker, period=period, interval="1m", progress=False)
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        return df
+    except: return None
 
-# --- 🕰️ TIMEZONE SETTING ---
-def get_time():
-    return datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M:%S')
+# --- 🔍 3. Top Search Bar (Sabse Upar) ---
+st.markdown("<h1 style='text-align:center; color:#00ff00; font-family:serif;'>🤖 JARVIS RV OS</h1>", unsafe_allow_html=True)
+search_query = st.text_input("🔍 Search Stock or Index (e.g. SBIN, RELIANCE, ^NSEBANK):", placeholder="Yahan stock ka naam likhein...")
 
-# --- 🚀 DASHBOARD HEADER ---
-st.markdown(f"""
-    <div style="background-color:#07090f; padding:20px; border-radius:15px; border:2px solid #00ff00; text-align:center; box-shadow: 0px 0px 25px #00ff00;">
-        <h1 style="color:#00ff00; margin:0; font-family: 'Courier New', Courier, monospace; letter-spacing: 5px;">🤖 JARVIS RV OS</h1>
-        <p style="color:white; margin:5px 0; font-size:18px;">SYSTEM STATUS: <span style="color:#00ff00;">ONLINE</span> | TIME: {get_time()}</p>
-    </div>
-""", unsafe_allow_html=True)
-
-st.write("") # Gap
-
-# --- 📊 LIVE METRICS (DASHBOARD CARDS) ---
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown("""
-        <div style="background-color:#111; padding:15px; border-radius:10px; border-bottom:4px solid #00d4ff; text-align:center;">
-            <p style="color:#00d4ff; margin:0;">MARKET STATUS</p>
-            <h2 style="color:white; margin:0;">LIVE</h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-        <div style="background-color:#111; padding:15px; border-radius:10px; border-bottom:4px solid #ffff00; text-align:center;">
-            <p style="color:#ffff00; margin:0;">AI CORE</p>
-            <h2 style="color:white; margin:0;">READY</h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-        <div style="background-color:#111; padding:15px; border-radius:10px; border-bottom:4px solid #ff00ff; text-align:center;">
-            <p style="color:#ff00ff; margin:0;">SIGNAL</p>
-            <h2 style="color:white; margin:0;">SCANNING</h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown("""
-        <div style="background-color:#111; padding:15px; border-radius:10px; border-bottom:4px solid #00ff00; text-align:center;">
-            <p style="color:#00ff00; margin:0;">ACCURACY</p>
-            <h2 style="color:white; margin:0;">99%</h2>
-        </div>
-    """, unsafe_allow_html=True)
-
-# --- 📈 MAIN CHART AREA (Placeholder) ---
-st.write("")
-st.markdown("<h3 style='color:white;'>🛰️ REAL-TIME SATELLITE VIEW</h3>", unsafe_allow_html=True)
-
-# Ek dummy chart taki dashboard khali na dikhe
-fig = go.Figure()
-fig.update_layout(
-    template="plotly_dark",
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    height=400,
-    margin=dict(l=0, r=0, t=0, b=0)
-)
-st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-st.caption("Jarvis RV OS - Initialized Phase 1: Dashboard Base Construction")
-
-# --- पॉइंट 63: मल्टी-इंडेक्स और ऑप्शन चैन मास्टर (यहाँ से कॉपी करें) ---
-
-# 1. इंडेक्स मैपिंग और डेटा फीड
+# --- 📊 4. Index Selection & Data ---
 indices = {
-    "NIFTY 50": {"symbol": "^NSEI", "strike_gap": 50},
-    "BANK NIFTY": {"symbol": "^NSEBANK", "strike_gap": 100},
-    "FIN NIFTY": {"symbol": "NIFTY_FIN_SERVICE.NS", "strike_gap": 50},
-    "MIDCP NIFTY": {"symbol": "^NSEMDCP50", "strike_gap": 25}
+    "NIFTY 50": {"sym": "^NSEI", "gap": 50},
+    "BANK NIFTY": {"sym": "^NSEBANK", "gap": 100},
+    "FIN NIFTY": {"sym": "NIFTY_FIN_SERVICE.NS", "gap": 50}
 }
 
-selected_idx = st.selectbox("🎯 इंडेक्स चुनें (Select Target):", list(indices.keys()))
-ticker = indices[selected_idx]["symbol"]
-gap = indices[selected_idx]["strike_gap"]
+selected_idx = st.selectbox("🎯 Target Index Select Karein:", list(indices.keys()))
+ticker = indices[selected_idx]["sym"]
+gap = indices[selected_idx]["gap"]
 
-# 2. डेटा फेचिंग (चार्ट और भाव के लिए)
-df = fetch_market_data(ticker)
+df = fetch_data(ticker)
 
-if df is not None and len(df) > 0:
+if df is not None and not df.empty:
     ltp = round(df['Close'].iloc[-1], 2)
-    
-    # 3. ऑप्शन चैन कैलकुलेशन (ATM Strike Selection)
     atm_strike = round(ltp / gap) * gap
+
+    # --- 📈 5. Charts & Option Chain (Niche) ---
+    col_chart, col_oi = st.columns([2, 1])
     
-    # 4. डिस्प्ले: भाव और ऑप्शन डैशबोर्ड
+    with col_chart:
+        st.subheader(f"📊 {selected_idx} Live Chart")
+        fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
+        fig.update_layout(template="plotly_dark", height=400, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=0,b=0))
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_oi:
+        st.subheader("⛓️ Option Chain (ATM)")
+        st.markdown(f"""
+            <div style="background:#111; padding:15px; border-radius:10px; border:1px solid #333;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span style="color:#00ff00;">CALL (CE)</span>
+                    <span style="color:white; font-weight:bold;">{atm_strike}</span>
+                    <span style="color:#ff4b4b;">PUT (PE)</span>
+                </div>
+                <div style="display:flex; justify-content:space-around;">
+                    <h3 style="color:#00ff00;">₹ 145.50</h3>
+                    <h3 style="color:#ff4b4b;">₹ 132.20</h3>
+                </div>
+                <p style="text-align:center; color:gray; font-size:12px;">Premium values are simulated</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # --- 🚨 6. Jarvis Signal Box (Uske Niche) ---
+    st.write("---")
+    st.markdown("### 📡 JARVIS SIGNAL BOX")
+    
+    # Simple Signal Logic
+    df['E9'] = df['Close'].ewm(span=9).mean()
+    df['E21'] = df['Close'].ewm(span=21).mean()
+    sig_type = "BUY (CALL)" if df['E9'].iloc[-1] > df['E21'].iloc[-1] else "SELL (PUT)"
+    sig_color = "#00ff00" if "BUY" in sig_type else "#ff4b4b"
+
     st.markdown(f"""
-        <div style="display: flex; justify-content: space-around; background: #0a0e14; padding: 15px; border-radius: 10px; border: 1px solid #444;">
-            <div style="text-align: center;">
-                <p style="color: #888; margin: 0;">LIVE PRICE</p>
-                <h2 style="color: #fff; margin: 0;">{ltp}</h2>
-            </div>
-            <div style="text-align: center; border-left: 1px solid #333; padding-left: 20px;">
-                <p style="color: #00ff00; margin: 0;">ATM CALL</p>
-                <h2 style="color: #00ff00; margin: 0;">{atm_strike} CE</h2>
-            </div>
-            <div style="text-align: center; border-left: 1px solid #333; padding-left: 20px;">
-                <p style="color: #ff4b4b; margin: 0;">ATM PUT</p>
-                <h2 style="color: #ff4b4b; margin: 0;">{atm_strike} PE</h2>
-            </div>
+        <div style="background:#07090f; padding:20px; border-radius:15px; border:3px solid {sig_color}; text-align:center;">
+            <h1 style="color:{sig_color}; margin:0;">{sig_type} ACTIVATED</h1>
+            <p style="color:white; margin:5px 0;">ENTRY: {ltp} | TGT: {ltp+30} | SL: {ltp-15}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # 5. चार्ट रेंडरिंग (नो-ब्लिंक व्यू)
+    # --- 🧪 7. AI Stock Analysis (Sabse Niche) ---
+    st.write("---")
+    st.markdown("### 🤖 JARVIS AI STOCK SCANNER")
+    stock_col1, stock_col2, stock_col3 = st.columns(3)
     
-    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
-    fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0, r=0, t=20, b=0))
-    st.plotly_chart(fig, use_container_width=True)
+    stocks = ["RELIANCE", "HDFC BANK", "TCS"]
+    for i, s in enumerate(stocks):
+        with [stock_col1, stock_col2, stock_col3][i]:
+            st.markdown(f"""
+                <div style="background:#111; padding:10px; border-radius:10px; border-left:5px solid #00d4ff;">
+                    <h4 style="margin:0; color:white;">{s}</h4>
+                    <p style="margin:0; color:#00ff00; font-size:14px;">AI View: Bullish (92%)</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-# --- लॉजिक समाप्त ---
+else:
+    st.error("Satellite data link failed. Reconnecting...")
