@@ -72,7 +72,7 @@ def render_live_dashboard(ticker, gap):
             # नो-ब्लिंक चार्ट
             fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
             fig.update_layout(template="plotly_dark", height=400, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=0,b=0))
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # यहाँ हमने time.time() जोड़ा है ताकि हर रिफ्रेश पर आईडी बदल जाए st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"chart_{time.time()}")
             
             # Whale Meter (शक्ति मीटर)
             st.markdown(f"""
