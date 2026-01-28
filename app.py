@@ -169,3 +169,29 @@ else:
     st.warning("बाज़ार का डेटा सिंक किया जा रहा है... बैकअप रूट चेक हो रहा है।")
 
 st.caption("Jarvis RV OS v39.0 | Ultimate Master Edition | 61 Points Secured")
+
+
+# --- पॉइंट 62: स्मार्ट प्रॉफिट होल्ड या एग्जिट लॉजिक (यहाँ से कॉपी करें) ---
+if st.session_state.active:
+    # 1. मौजूदा प्रॉफिट कैलकुलेट करें
+    current_pips = abs(ltp - st.session_state.entry)
+    
+    # 2. मोमेंटम और स्ट्रेंथ चेक करें (पिछले 3 मिनट की चाल)
+    momentum_check = df['Close'].diff(3).iloc[-1]
+    curr_rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns else 50
+
+    # 3. फैसला (जब प्रॉफिट 15-20 पॉइंट के बीच हो)
+    if 15 <= current_pips <= 22 and not st.session_state.get('decision_voiced', False):
+        
+        # अगर RSI 65 से ऊपर है और मोमेंटम तेज़ है (बड़ा मूव पक्का)
+        if (st.session_state.type == "CALL" and momentum_check > 8 and curr_rsi > 60) or \
+           (st.session_state.type == "PUT" and momentum_check < -8 and curr_rsi < 40):
+            
+            play_voice("Sir, strong momentum detected. Don't exit at 20 points. Hold for a bigger jackpot move!")
+            st.session_state.decision_voiced = True # एक ट्रेड में एक ही बार बोलेगा
+            
+        else:
+            # अगर मार्केट थक रहा है
+            play_voice("Sir, market momentum is slowing down. Better to take 15 to 20 points and exit now.")
+            st.session_state.decision_voiced = True
+# --- लॉजिक समाप्त ---
