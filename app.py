@@ -76,3 +76,52 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 st.caption("Jarvis RV OS - Initialized Phase 1: Dashboard Base Construction")
+
+# --- पॉइंट 63: मल्टी-इंडेक्स और ऑप्शन चैन मास्टर (यहाँ से कॉपी करें) ---
+
+# 1. इंडेक्स मैपिंग और डेटा फीड
+indices = {
+    "NIFTY 50": {"symbol": "^NSEI", "strike_gap": 50},
+    "BANK NIFTY": {"symbol": "^NSEBANK", "strike_gap": 100},
+    "FIN NIFTY": {"symbol": "NIFTY_FIN_SERVICE.NS", "strike_gap": 50},
+    "MIDCP NIFTY": {"symbol": "^NSEMDCP50", "strike_gap": 25}
+}
+
+selected_idx = st.selectbox("🎯 इंडेक्स चुनें (Select Target):", list(indices.keys()))
+ticker = indices[selected_idx]["symbol"]
+gap = indices[selected_idx]["strike_gap"]
+
+# 2. डेटा फेचिंग (चार्ट और भाव के लिए)
+df = fetch_market_data(ticker)
+
+if df is not None and len(df) > 0:
+    ltp = round(df['Close'].iloc[-1], 2)
+    
+    # 3. ऑप्शन चैन कैलकुलेशन (ATM Strike Selection)
+    atm_strike = round(ltp / gap) * gap
+    
+    # 4. डिस्प्ले: भाव और ऑप्शन डैशबोर्ड
+    st.markdown(f"""
+        <div style="display: flex; justify-content: space-around; background: #0a0e14; padding: 15px; border-radius: 10px; border: 1px solid #444;">
+            <div style="text-align: center;">
+                <p style="color: #888; margin: 0;">LIVE PRICE</p>
+                <h2 style="color: #fff; margin: 0;">{ltp}</h2>
+            </div>
+            <div style="text-align: center; border-left: 1px solid #333; padding-left: 20px;">
+                <p style="color: #00ff00; margin: 0;">ATM CALL</p>
+                <h2 style="color: #00ff00; margin: 0;">{atm_strike} CE</h2>
+            </div>
+            <div style="text-align: center; border-left: 1px solid #333; padding-left: 20px;">
+                <p style="color: #ff4b4b; margin: 0;">ATM PUT</p>
+                <h2 style="color: #ff4b4b; margin: 0;">{atm_strike} PE</h2>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 5. चार्ट रेंडरिंग (नो-ब्लिंक व्यू)
+    
+    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
+    fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0, r=0, t=20, b=0))
+    st.plotly_chart(fig, use_container_width=True)
+
+# --- लॉजिक समाप्त ---
