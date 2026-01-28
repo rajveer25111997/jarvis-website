@@ -51,7 +51,7 @@ def render_live_dashboard(ticker, gap):
         ltp = round(df['Close'].iloc[-1], 2)
         atm_strike = round(ltp / gap) * gap
         momentum = df['Close'].diff(3).iloc[-1] if len(df) > 3 else 0
-        momentum = df['Close'].diff(3).iloc[-1] # Momentum factor
+        
         
         # 9/21 EMA Strategy
         df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
