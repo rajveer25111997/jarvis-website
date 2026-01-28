@@ -59,12 +59,18 @@ def render_live_dashboard(ticker, gap):
         sig_text = "BUY (CALL) ACTIVE" if is_buy else "SELL (PUT) ACTIVE"
         sig_color = "#00ff00" if is_buy else "#ff4b4b"
 
-        # प्रीमियम और व्हेल मीटर लॉजिक
-        ce_price = round((ltp * 0.005) + (momentum * 2), 2)
-        pe_price = round((ltp * 0.005) - (momentum * 2), 2)
-        whale_power = "BULLS" if momentum > 0 else "BEARS"
-        whale_color = "#00ff00" if momentum > 0 else "#ff4b4b"
-        whale_strength = min(abs(int(momentum * 15)), 100)
+        # --- [सटीक प्रीमियम लॉजिक - Option Greek Simulation] ---
+        # मान लेते हैं कि ATM प्रीमियम निफ्टी के भाव का लगभग 0.8% होता है (Intraday Average)
+        base_premium = ltp * 0.008 
+        
+        # बुलिश और बियरिश प्रेशर के हिसाब से प्रीमियम को एडजस्ट करना
+        # अगर मार्केट ऊपर है तो CE बढ़ेगा, नीचे है तो PE बढ़ेगा
+        ce_price = round(base_premium + (momentum * 5), 2)
+        pe_price = round(base_premium - (momentum * 5), 2)
+        
+        # भाव कभी माइनस में न जाए इसके लिए सेफ्टी
+        ce_price = max(ce_price, 5.0)
+        pe_price = max(pe_price, 5.0)
 
         # ✅ जादू: पुराने UI को मिटाकर नया डालना
         with live_area.container():
