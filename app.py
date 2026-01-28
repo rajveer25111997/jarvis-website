@@ -50,6 +50,7 @@ def render_live_dashboard(ticker, gap):
         # --- [डेटा कैलकुलेशन] ---
         ltp = round(df['Close'].iloc[-1], 2)
         atm_strike = round(ltp / gap) * gap
+        momentum = df['Close'].diff(3).iloc[-1] if len(df) > 3 else 0
         momentum = df['Close'].diff(3).iloc[-1] # Momentum factor
         
         # 9/21 EMA Strategy
