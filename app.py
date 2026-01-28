@@ -13,19 +13,16 @@ st.set_page_config(page_title="JARVIS RV OS", layout="wide", initial_sidebar_sta
 # --- 🛡️ 2. डेटा रिकवरी इंजन ---
 def fetch_market_data(ticker):
     try:
-        # 1-दिन का डेटा 1-मिनट के अंतराल पर
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
         if not df.empty:
             if isinstance(df.columns, pd.MultiIndex): 
                 df.columns = df.columns.get_level_values(0)
             return df
-    except Exception as e:
+    except Exception:
         return None
 
-# --- 🔍 3. फिक्स्ड हेडर (Sarsbar) ---
-# यह हिस्सा कभी नहीं हिलेगा
+# --- 🔍 3. फिक्स्ड हेडर ---
 st.markdown("<h1 style='text-align:center; color:#00ff00; margin:0; font-family:serif; letter-spacing:5px;'>🤖 JARVIS RV OS</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:white; font-size:12px;'>SYSTEM STATUS: SECURED | FRAGMENT MODE ACTIVE</p>", unsafe_allow_html=True)
 
 indices = {
     "NIFTY 50": {"sym": "^NSEI", "gap": 50},
@@ -33,13 +30,11 @@ indices = {
     "FIN NIFTY": {"sym": "NIFTY_FIN_SERVICE.NS", "gap": 50}
 }
 
-# इंडेक्स सिलेक्शन (Static)
 idx_choice = st.sidebar.selectbox("🎯 Select Target Index:", list(indices.keys()))
 ticker = indices[idx_choice]["sym"]
 gap = indices[idx_choice]["gap"]
 
-# --- 🏗️ 4. लाइव कंटेनर और फ्रैगमेंट ---
-# यह पुराने डेटा को मिटाकर नया डालने की जगह है
+# --- 🏗️ 4. लाइव एरिया और फ्रैगमेंट ---
 live_area = st.empty()
 
 @st.fragment(run_every="2s")
@@ -50,105 +45,85 @@ def render_live_dashboard(ticker, gap):
         # --- [डेटा कैलकुलेशन] ---
         ltp = round(df['Close'].iloc[-1], 2)
         atm_strike = round(ltp / gap) * gap
+        
+        # ✅ FIXED: Momentum Calculation (No more NameError)
         momentum = df['Close'].diff(3).iloc[-1] if len(df) > 3 else 0
         
-        
-        # 9/21 EMA Strategy
+        # Strategy Indicators
         df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
         df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
         is_buy = df['E9'].iloc[-1] > df['E21'].iloc[-1]
         sig_text = "BUY (CALL) ACTIVE" if is_buy else "SELL (PUT) ACTIVE"
         sig_color = "#00ff00" if is_buy else "#ff4b4b"
 
-        # --- [सटीक प्रीमियम लॉजिक - Option Greek Simulation] ---
-        # मान लेते हैं कि ATM प्रीमियम निफ्टी के भाव का लगभग 0.8% होता है (Intraday Average)
-        base_premium = ltp * 0.008 
-        
-        # बुलिश और बियरिश प्रेशर के हिसाब से प्रीमियम को एडजस्ट करना
-        # अगर मार्केट ऊपर है तो CE बढ़ेगा, नीचे है तो PE बढ़ेगा
-        ce_price = round(base_premium + (momentum * 5), 2)
-        pe_price = round(base_premium - (momentum * 5), 2)
-        
-        # भाव कभी माइनस में न जाए इसके लिए सेफ्टी
-        ce_price = max(ce_price, 5.0)
-        pe_price = max(pe_price, 5.0)
+        # ✅ NEW: Improved Option Premium Logic
+        base_premium = ltp * 0.006 # Approx 100-150 range for Nifty
+        ce_price = round(base_premium + (momentum * 8), 2)
+        pe_price = round(base_premium - (momentum * 8), 2)
+        ce_price, pe_price = max(ce_price, 10.0), max(pe_price, 10.0)
 
-        # ✅ जादू: पुराने UI को मिटाकर नया डालना
+        # Whale Power Meter
+        whale_power = "BULLS" if momentum > 0 else "BEARS"
+        whale_color = "#00ff00" if momentum > 0 else "#ff4b4b"
+        whale_strength = min(abs(int(momentum * 20)), 100)
+
         with live_area.container():
-            
-            # 🔊 आवाज़ अलर्ट (सिर्फ सिग्नल बदलने पर)
+            # 🔊 Voice Alerts
             if st.session_state.get('last_sig') != sig_text:
-                js_voice = f"<script>var m = new SpeechSynthesisUtterance('{sig_text}'); window.speechSynthesis.speak(m);</script>"
-                st.components.v1.html(js_voice, height=0)
+                v_js = f"<script>var m = new SpeechSynthesisUtterance('{sig_text}'); window.speechSynthesis.speak(m);</script>"
+                st.components.v1.html(v_js, height=0)
                 st.session_state['last_sig'] = sig_text
 
-            # 📊 चार्ट और ऑप्शन चैन लेआउट
+            # 📊 चार्ट और ऑप्शन चैन
             
             col_chart, col_oi = st.columns([2, 1])
             
             with col_chart:
-                fig = go.Figure(data=[go.Candlestick(
-                    x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-                    name="Price"
-                )])
-                fig.update_layout(
-                    template="plotly_dark", height=400, 
-                    xaxis_rangeslider_visible=False, 
-                    margin=dict(l=0,r=0,t=0,b=0)
-                )
-                # Unique Key ताकि 'Duplicate ID' एरर न आए
+                fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
+                fig.update_layout(template="plotly_dark", height=400, xaxis_rangeslider_visible=False, margin=dict(l=0,r=0,t=0,b=0))
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"c_{time.time()}")
                 
-                # Whale Power Meter (शक्ति मीटर)
+                # Whale Meter
                 st.markdown(f"""
                     <div style="width: 100%; background: #222; border-radius: 10px; margin-top: 10px; height:12px; border:1px solid #444;">
-                        <div style="width: {whale_strength}%; background: {whale_color}; height: 10px; border-radius: 10px; transition: 0.8s; box-shadow: 0px 0px 10px {whale_color};"></div>
+                        <div style="width: {whale_strength}%; background: {whale_color}; height: 10px; border-radius: 10px; transition: 0.8s;"></div>
                     </div>
-                    <p style="color:{whale_color}; text-align:center; font-weight:bold; margin-top:5px; font-size:14px;">WHALE POWER: {whale_power} ({whale_strength}%)</p>
+                    <p style="color:{whale_color}; text-align:center; font-weight:bold; margin-top:5px;">WHALE POWER: {whale_power} ({whale_strength}%)</p>
                 """, unsafe_allow_html=True)
             
             with col_oi:
-                # लाइव ऑप्शन चैन बॉक्स
                 st.markdown(f"""
                     <div style="background:#111; padding:25px; border-radius:15px; border:1px solid #333; height:435px; display:flex; flex-direction:column; justify-content:center; text-align:center;">
-                        <p style="color:gray; margin:0; font-size:14px; letter-spacing:1px;">ATM OPTION CHAIN</p>
+                        <p style="color:gray; margin:0; font-size:14px;">ATM OPTION CHAIN</p>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin:25px 0;">
                             <b style="color:#00ff00; font-size:24px;">CE</b>
-                            <span style="color:white; font-size:32px; font-weight:bold; border-bottom: 2px solid #555;">{atm_strike}</span>
+                            <span style="color:white; font-size:32px; font-weight:bold;">{atm_strike}</span>
                             <b style="color:#ff4b4b; font-size:24px;">PE</b>
                         </div>
                         <div style="display:flex; justify-content:space-around; margin-bottom:20px;">
-                            <div>
-                                <h2 style="color:#00ff00; margin:0;">₹ {ce_price}</h2>
-                                <small style="color:gray;">CALL LTP</small>
-                            </div>
-                            <div>
-                                <h2 style="color:#ff4b4b; margin:0;">₹ {pe_price}</h2>
-                                <small style="color:gray;">PUT LTP</small>
-                            </div>
+                            <div><h2 style="color:#00ff00; margin:0;">₹ {ce_price}</h2><small>CALL LTP</small></div>
+                            <div><h2 style="color:#ff4b4b; margin:0;">₹ {pe_price}</h2><small>PUT LTP</small></div>
                         </div>
-                        <p style="color:#ffff00; font-size:12px; border-top:1px solid #333; padding-top:10px;">EMA 9/21 STRATEGY: ACTIVE</p>
+                        <p style="color:#ffff00; font-size:12px; border-top:1px solid #333; padding-top:10px;">9/21 EMA SIGNAL ACTIVE</p>
                     </div>
                 """, unsafe_allow_html=True)
 
-            # 🚨 मास्टर सिग्नल बॉक्स (Fixed inside container)
+            # 🚨 मास्टर सिग्नल बॉक्स
             st.markdown(f"""
                 <div style="background:#07090f; padding:30px; border-radius:20px; border:5px solid {sig_color}; text-align:center; box-shadow: 0px 0px 25px {sig_color}; margin-top:15px;">
-                    <h1 style="color:{sig_color}; margin:0; font-size:50px; font-weight:bold; letter-spacing:3px;">{sig_text}</h1>
-                    <p style="color:white; font-size:22px; margin-top:10px;">LTP: {ltp} | CALL: ₹{ce_price} | PUT: ₹{pe_price}</p>
-                    <p style="color:gray; font-size:14px; margin:0;">Target: +35 Pts | StopLoss: -15 Pts</p>
+                    <h1 style="color:{sig_color}; margin:0; font-size:50px; font-weight:bold; letter-spacing:2px;">{sig_text}</h1>
+                    <p style="color:white; font-size:22px; margin-top:10px;">LTP: {ltp} | CE: ₹{ce_price} | PE: ₹{pe_price}</p>
                 </div>
             """, unsafe_allow_html=True)
 
     else:
-        st.warning("📡 बाज़ार से संपर्क टूट गया है... जार्विस डेटा रिकवर कर रहा है।")
+        st.warning("📡 बाज़ार का डेटा लोड हो रहा है...")
 
-# --- 🚀 5. जार्विस को शुरू करें ---
+# --- 🚀 EXECUTION ---
 render_live_dashboard(ticker, gap)
 
-# 🛰️ 6. AI स्टॉक स्कैनर (सबसे नीचे)
+# 🛰️ AI SCANNER (Bottom)
 st.write("---")
-st.markdown("<h3 style='color:white;'>🛰️ JARVIS AI STOCK SCANNER</h3>", unsafe_allow_html=True)
 sc1, sc2, sc3 = st.columns(3)
 stocks = [("RELIANCE", "Bullish"), ("HDFC BANK", "Strong Buy"), ("TCS", "Neutral")]
 for i, (name, trend) in enumerate(stocks):
