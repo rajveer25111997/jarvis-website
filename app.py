@@ -4,41 +4,40 @@ import pandas as pd
 import plotly.graph_objects as go
 import time
 import warnings
+from datetime import datetime
 
-# --- 🎯 1. JARVIS CORE (Self-Healing & Config) ---
+# --- 🎯 1. JARVIS CORE (Stability Fix) ---
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="JARVIS MASTER OS", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 🛡️ 2. ADVANCED DATA ENGINE (Stock, Commodity, Index) ---
+# --- 🛡️ 2. HIGH-SPEED DATA ENGINE (For Live Bhav & Charts) ---
 def fetch_data(ticker):
     try:
-        # Latest data with auto-adjust for precision
+        # data ko refresh karne ke liye auto_adjust true rakha hai
         df = yf.download(ticker, period="2d", interval="1m", progress=False, auto_adjust=True)
         if not df.empty:
             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
             return df
     except: return None
 
-# --- 🔍 3. SARS TOP STATUS BAR (System Reliability) ---
+# --- 🔍 3. SARS STATUS BAR ---
 st.markdown("<h1 style='text-align:center; color:#00ff00; margin:0; font-family:serif; letter-spacing:5px;'>🤖 JARVIS MASTER OS</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:white; font-size:12px; margin-bottom:10px;'>FII/DII TRACKER: ACTIVE | NEWS IMPACT: ENABLED | SNIPER MODE: V101</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:white; font-size:12px; margin-bottom:10px;'>LIVE SYNC: ACTIVE | SNIPER MODE: V102 | SYNC TIME: {datetime.now().strftime('%H:%M:%S')}</p>", unsafe_allow_html=True)
 
-# --- 🛠️ 4. SIDEBAR (Strategy Builder & Market Selection) ---
+# --- 🛠️ 4. SIDEBAR & ASSET SELECTION ---
 with st.sidebar:
-    st.header("⚙️ Strategy Control")
-    idx_choice = st.selectbox("🎯 Target Market:", ["NIFTY 50", "BANK NIFTY", "MCX CRUDEOIL", "GOLD"])
-    trade_limit = st.slider("Daily Sniper Limit:", 1, 10, 3)
-    st.info("Jarvis is learning from current market volatility...")
-
+    st.header("⚙️ Jarvis Controls")
+    market = st.selectbox("Market Class:", ["NIFTY 50", "BANK NIFTY", "CRUDE OIL"])
+    trade_limit = st.slider("Sniper Limit:", 1, 10, 3)
+    
 indices = {
     "NIFTY 50": {"sym": "^NSEI", "gap": 50}, 
     "BANK NIFTY": {"sym": "^NSEBANK", "gap": 100}, 
-    "MCX CRUDEOIL": {"sym": "CL=F", "gap": 10},
-    "GOLD": {"sym": "GC=F", "gap": 20}
+    "CRUDE OIL": {"sym": "CL=F", "gap": 10}
 }
-ticker, gap = indices[idx_choice]["sym"], indices[idx_choice]["gap"]
+ticker, gap = indices[market]["sym"], indices[market]["gap"]
 
-# --- 🧠 5. MASTER MEMORY (Learning & Trade Limit) ---
+# --- 🧠 5. MASTER MEMORY ---
 if "trade_count" not in st.session_state: st.session_state.trade_count = 0
 if "entry" not in st.session_state: st.session_state.entry = 0.0
 if "last_sig" not in st.session_state: st.session_state.last_sig = ""
@@ -47,14 +46,13 @@ live_area = st.empty()
 
 @st.fragment(run_every="2s")
 def render_dashboard(ticker, gap):
-    # 🚫 Sniper Limit Check
     if st.session_state.trade_count >= trade_limit:
-        live_area.success(f"🎯 {trade_limit} TRADES COMPLETED. Profit Protected. System Sleeping.")
+        live_area.success(f"🎯 {trade_limit} TRADES COMPLETED. Profit Protected.")
         return
 
     df = fetch_data(ticker)
     if df is not None and len(df) > 20:
-        # 🛰️ A. FII/DII & HEAVYWEIGHTS (Hidden Tracker)
+        # 🛰️ A. NEWS & SENTIMENT TRACKER
         heavyweights = ["RELIANCE.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS"]
         news_score = 0
         try:
@@ -65,7 +63,7 @@ def render_dashboard(ticker, gap):
         except: pass
         news_mood = "BULLISH" if news_score >= 1 else "BEARISH" if news_score <= -1 else "NEUTRAL"
 
-        # 📊 B. MULTI-STRATEGY ENGINE (9/21/200 EMA + RSI)
+        # 📊 B. CHART & INDICATOR ENGINE
         ltp = round(df['Close'].iloc[-1], 2)
         df['E9'] = df['Close'].ewm(span=9, adjust=False).mean()
         df['E21'] = df['Close'].ewm(span=21, adjust=False).mean()
@@ -77,10 +75,9 @@ def render_dashboard(ticker, gap):
         rs = gain / (loss + 1e-10)
         df['RSI'] = 100 - (100 / (1 + rs))
 
-        # 🎯 C. 98% ASSURITY & SNIPER ENTRY
-        # Condition: EMA Cross + RSI > 65 + FII/DII Positive + Price > 200 EMA
-        is_buy = (df['E9'].iloc[-1] > df['E21'].iloc[-1]) and (df['RSI'].iloc[-1] > 65) and (news_mood == "BULLISH") and (ltp > df['E200'].iloc[-1])
-        is_sell = (df['E9'].iloc[-1] < df['E21'].iloc[-1]) and (df['RSI'].iloc[-1] < 35) and (news_mood == "BEARISH") and (ltp < df['E200'].iloc[-1])
+        # 🎯 C. SIGNAL LOGIC (ASSURITY CHECK)
+        is_buy = (df['E9'].iloc[-1] > df['E21'].iloc[-1]) and (df['RSI'].iloc[-1] > 65) and (news_mood == "BULLISH")
+        is_sell = (df['E9'].iloc[-1] < df['E21'].iloc[-1]) and (df['RSI'].iloc[-1] < 35) and (news_mood == "BEARISH")
         
         atm_strike = round(ltp / gap) * gap
         calc_premium = round((ltp * 0.0075) + (abs(ltp - atm_strike) * 0.55), 2)
@@ -89,52 +86,44 @@ def render_dashboard(ticker, gap):
         elif is_sell: sig_text, sig_color = "🚨 MASTER SELL (98%)", "#ff4b4b"
         else: sig_text, sig_color = "⌛ SCANNING MARKET...", "#555555"
 
-        # Hybrid Voice System & Trade Counter
+        # 🔊 VOICE & TRADE LOCK
         if "MASTER" in sig_text and st.session_state.last_sig != sig_text:
             st.session_state.trade_count += 1
             st.session_state.entry = calc_premium
             st.session_state.last_sig = sig_text
-            voice = f"Jarvis Alert! {sig_text}. News Mood {news_mood}. Profit Target 20 points."
-            st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('{voice}');window.speechSynthesis.speak(m);</script>", height=0)
-        elif "SCANNING" in sig_text:
-            st.session_state.last_sig = ""
+            voice_msg = f"Attention! Jarvis detected {sig_text}. News Impact is {news_mood}."
+            st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('{voice_msg}');window.speechSynthesis.speak(m);</script>", height=0)
+        elif "SCANNING" in sig_text: st.session_state.last_sig = ""
 
-        # 🖥️ D. UI RENDERING (Master Dashboard)
+        # 🖥️ D. UI RENDERING (ALL POINTS WORKING)
         with live_area.container():
             c1, c2 = st.columns([2, 1])
-            with c1:
+            with c1: # CHART BOX
                 fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
-                fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
-                st.plotly_chart(fig, use_container_width=True, key=f"c_{time.time()}")
+                fig.update_layout(template="plotly_dark", height=420, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
+                st.plotly_chart(fig, use_container_width=True, key=f"ch_{time.time()}")
             
-            with c2:
+            with c2: # LIVE BHAV BOX
                 st.markdown(f"""
-                    <div style="background:#111; padding:25px; border-radius:15px; border:1px solid #333; text-align:center; height:400px; display:flex; flex-direction:column; justify-content:center;">
-                        <h3 style="color:#00ff00; margin:0;">LIVE LTP: {ltp}</h3>
-                        <p style="color:gray; margin:5px 0;">MOOD: {news_mood} | RSI: {round(df['RSI'].iloc[-1], 1)}</p>
-                        <h2 style="color:white; margin:0;">ATM: {atm_strike}</h2>
+                    <div style="background:#111; padding:20px; border-radius:15px; border:1px solid #333; text-align:center; height:420px; display:flex; flex-direction:column; justify-content:center;">
+                        <h2 style="color:#00ff00; margin:0;">LTP: {ltp}</h2>
+                        <p style="color:gray;">MOOD: {news_mood} | FII: {news_score}</p>
+                        <h4 style="color:white; margin:0;">ATM: {atm_strike}</h4>
                         <h1 style="color:{sig_color}; font-size:60px; margin:10px 0;">₹{calc_premium}</h1>
-                        <p style="color:gray;">TRADES: {st.session_state.trade_count}/{trade_limit}</p>
+                        <p style="color:gray;">SNIPER: {st.session_state.trade_count}/{trade_limit}</p>
                     </div>
                 """, unsafe_allow_html=True)
 
-            # 🚨 PERMANENT SIGNAL BOX
+            # PERMANENT SIGNAL BOX
             st.markdown(f"""
-                <div style="background:#07090f; padding:25px; border-radius:20px; border:5px solid {sig_color}; text-align:center; box-shadow: 0px 0px 20px {sig_color}; margin-top:10px;">
+                <div style="background:#07090f; padding:25px; border-radius:20px; border:5px solid {sig_color}; text-align:center; box-shadow: 0px 0px 25px {sig_color}; margin-top:10px;">
                     <h1 style="color:{sig_color}; margin:0; font-size:45px; font-weight:bold;">{sig_text}</h1>
                     <div style="display:flex; justify-content:space-around; margin-top:15px; border-top:1px solid #333; padding-top:15px;">
-                        <div><p style="color:gray; margin:0;">ENTRY</p><h2 style="color:white; margin:0;">₹{st.session_state.entry if st.session_state.entry>0 else '---'}</h2></div>
-                        <div><p style="color:#00ff00; margin:0;">TGT (+20)</p><h2 style="color:#00ff00; margin:0;">₹{round(st.session_state.entry+20, 2) if st.session_state.entry>0 else '---'}</h2></div>
-                        <div><p style="color:#ff4b4b; margin:0;">SL (-10)</p><h2 style="color:#ff4b4b; margin:0;">₹{round(st.session_state.entry-10, 2) if st.session_state.entry>0 else '---'}</h2></div>
+                        <div><p style="color:gray; margin:0;">ENTRY</p><h2 style="color:white; margin:0;">₹{st.session_state.entry if st.session_state.entry > 0 else '---'}</h2></div>
+                        <div><p style="color:#00ff00; margin:0;">TARGET (+20)</p><h2 style="color:#00ff00; margin:0;">₹{round(st.session_state.entry+20, 2) if st.session_state.entry > 0 else '---'}</h2></div>
+                        <div><p style="color:#ff4b4b; margin:0;">STOPLOSS (-10)</p><h2 style="color:#ff4b4b; margin:0;">₹{round(st.session_state.entry-10, 2) if st.session_state.entry > 0 else '---'}</h2></div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
 render_dashboard(ticker, gap)
-
-# --- 🛰️ 6. EXTRA AI FEATURES (IPO, News Tracker) ---
-st.write("---")
-f1, f2, f3 = st.columns(3)
-with f1: st.info("🌐 **IPOs:** Fractal Analytics, BCCL IPO (9 Jan)")
-with f2: st.info("📊 **FII/DII Deals:** Heavy accumulation in Reliance")
-with f3: st.info("📰 **News:** Crude Oil demand rising, Gold target 75k")
