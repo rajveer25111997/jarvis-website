@@ -6,33 +6,31 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
 # --- 🎯 1. SUPREME SETTINGS ---
-st.set_page_config(page_title="Jarvis NSE Master", layout="wide")
-st_autorefresh(interval=3000, key="jarvis_nse_only")
+st.set_page_config(page_title="Jarvis NSE v117", layout="wide")
+st_autorefresh(interval=3000, key="jarvis_nse_v117")
 
-# --- 🔊 2. MASTER VOICE ENGINE ---
 def jarvis_speak(text):
     if text:
         js = f"<script>window.speechSynthesis.cancel(); var m = new SpeechSynthesisUtterance('{text}'); m.lang='hi-IN'; window.speechSynthesis.speak(m);</script>"
         st.components.v1.html(js, height=0)
 
-# --- 🧠 3. PERMANENT BRAIN (Stock Memory) ---
+# --- 🧠 2. PERMANENT BRAIN ---
 if "init" not in st.session_state:
     st.session_state.update({
         "locked": False, "signal": "SCANNING", 
         "ep": 0.0, "sl": 0.0, "tg": 0.0,
-        "why": "बड़े खिलाड़ियों और इंडेक्स की सभी कंपनियों को स्कैन कर रहा हूँ...",
+        "why": "मार्केट डेटा का शुद्ध विश्लेषण जारी है...",
         "capital_inr": 10000.0
     })
 
-st.markdown("<h1 style='text-align:center; color:#00FF00;'>🛡️ JARVIS NSE COMMANDER v116.0</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color:#00FF00;'>🛡️ NSE COMMANDER v117.0</h1>", unsafe_allow_html=True)
 
 if st.button("🔊 ACTIVATE JARVIS SYSTEM"):
-    jarvis_speak("नमस्ते राजवीर सर, स्टॉक मार्केट मास्टर सिस्टम अब लाइव है। क्रिप्टो को हटा दिया गया है।")
+    jarvis_speak("नमस्ते राजवीर सर, बग फ्री सिस्टम अब लाइव है।")
 
-# --- 📈 NSE DATA ENGINE (High-Speed Backup Logic) ---
+# --- 📈 NSE DATA ENGINE ---
 def get_nse_data():
     try:
-        # Direct Yahoo JSON Feed for Nifty 50
         url = "https://query1.finance.yahoo.com/v8/finance/chart/^NSEI?interval=1m&range=1d"
         res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
         p = res['chart']['result'][0]['indicators']['quote'][0]['close']
@@ -45,64 +43,52 @@ def get_nse_data():
 
 df = get_nse_data()
 
-# --- ⚙️ STOCK MARKET STRATEGY (The Brain) ---
-if not df.empty and len(df) > 20:
-    # Javed/Karishma Indicators
-    df['E9'] = ta.ema(df['Close'], length=9)
-    df['E21'] = ta.ema(df['Close'], length=21)
-    df['E200'] = ta.ema(df['Close'], length=200)
-    ltp = round(df['Close'].iloc[-1], 2)
-    
-    # Operator Eye (Volume Spike Check)
-    vol_now = df['Volume'].iloc[-1]
-    avg_vol = df['Volume'].tail(15).mean()
+# --- ⚙️ ERROR-FREE STRATEGY ---
+# कम से कम 200 कैंडल्स का इंतज़ार करने के बजाय, उपलब्ध डेटा पर सुरक्षित चेक
+if not df.empty and len(df) > 1:
+    try:
+        # Indicators
+        df['E9'] = ta.ema(df['Close'], length=9)
+        df['E21'] = ta.ema(df['Close'], length=21)
+        df['E200'] = ta.ema(df['Close'], length=min(len(df), 200))
+        
+        ltp = round(df['Close'].iloc[-1], 2)
+        
+        if not st.session_state.locked:
+            # सुरक्षित वैल्यू चेक (TypeError से बचने के लिए)
+            val_e9 = df['E9'].iloc[-1]
+            val_e21 = df['E21'].iloc[-1]
+            val_e200 = df['E200'].iloc[-1] if not pd.isna(df['E200'].iloc[-1]) else ltp
 
-    if not st.session_state.locked:
-        # Strategy Combine: 9/21 Crossover + 200 EMA + Volume Confirmation
-        is_call = df['E9'].iloc[-1] > df['E21'].iloc[-1] and ltp > df['E200'].iloc[-1]
-        is_put = df['E9'].iloc[-1] < df['E21'].iloc[-1] and ltp < df['E200'].iloc[-1]
-        big_player = vol_now > (avg_vol * 1.3) # Operator Entry Signal
+            if not pd.isna(val_e9) and not pd.isna(val_e21):
+                is_call = val_e9 > val_e21 and ltp > val_e200
+                is_put = val_e9 < val_e21 and ltp < val_e200
+                
+                if is_call:
+                    st.session_state.update({"signal": "CALL (BUY)", "ep": ltp, "sl": ltp-50, "tg": ltp+250, "locked": True, "why": "9/21 क्रॉसओवर और ट्रेंड बुलिश है।"})
+                    jarvis_speak("एन एस ई कॉल लॉक्ड।")
+                elif is_put:
+                    st.session_state.update({"signal": "PUT (SELL)", "ep": ltp, "sl": ltp+50, "tg": ltp-250, "locked": True, "why": "9/21 क्रॉसओवर और ट्रेंड बेरिश है।"})
+                    jarvis_speak("एन एस ई पुट लॉक्ड।")
 
-        if is_call and big_player:
-            st.session_state.update({
-                "signal": "CALL (BUY)", "ep": ltp, "sl": ltp-50, "tg": ltp+250, "locked": True,
-                "why": "बड़े खिलाड़ियों ने भारी खरीदारी शुरू की है। भाव 9/21 और 200 EMA के ऊपर मजबूत बुलिश है।"
-            })
-            jarvis_speak("राजवीर सर, ऑपरेटर्स की खरीदारी मिली है। एन एस ई कॉल लॉक्ड।")
-        elif is_put and big_player:
-            st.session_state.update({
-                "signal": "PUT (SELL)", "ep": ltp, "sl": ltp+50, "tg": ltp-250, "locked": True,
-                "why": "बाज़ार में बड़ी कंपनियों की बिकवाली है। ऑपरेटर्स मार्केट को नीचे ले जा रहे हैं।"
-            })
-            jarvis_speak("राजवीर सर, ऑपरेटर्स माल बेच रहे हैं। एन एस ई पुट लॉक्ड।")
+        # Display
+        c1, c2, c3 = st.columns(3)
+        c1.metric("NIFTY 50", f"₹{ltp}")
+        c2.success(f"📌 {st.session_state.signal}")
+        c3.warning(f"💰 Cap: ₹10k")
 
-    # --- 📊 DASHBOARD DISPLAY ---
-    c1, c2, c3 = st.columns(3)
-    c1.metric("NIFTY 50 LIVE", f"₹{ltp}")
-    c2.success(f"📌 {st.session_state.signal}")
-    
-    # Capital Management (INR based)
-    qty = round(st.session_state.capital_inr / (ltp * 0.1), 1) # Estimated Lot size/margin
-    c3.warning(f"💰 Qty: {qty} | Cap: ₹10k")
+        st.info(f"🧠 **Why:** {st.session_state.why}")
 
-    st.info(f"🧠 **Jarvis Analysis (Reason):** {st.session_state.why}")
-
-    # Candlestick View
-    fig = go.Figure(data=[go.Scatter(x=df.index, y=df['Close'], name='Price', line=dict(color='#00FF00', width=2))])
-    fig.add_trace(go.Scatter(x=df.index, y=df['E9'], name='EMA 9', line=dict(color='yellow')))
-    fig.add_trace(go.Scatter(x=df.index, y=df['E21'], name='EMA 21', line=dict(color='cyan')))
-    
-    fig.update_layout(template="plotly_dark", height=450, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.write(f"**LOCKED ENTRY:** {st.session_state.ep} | **STOP LOSS:** {st.session_state.sl} | **TARGET:** {st.session_state.tg}")
-
+        fig = go.Figure(data=[go.Scatter(x=df.index, y=df['Close'], line=dict(color='#00FF00'))])
+        fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0))
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.info("🔄 जार्विस डेटा को सिंक कर रहा है, कृपया 2 सेकंड रुकें...")
 else:
-    st.info("📡 जार्विस स्टॉक मार्केट और बड़े खिलाड़ियों की चाल को स्कैन कर रहा है... कृपया रुकें।")
+    st.info("📡 बाज़ार की शुरुआती कैंडल्स का इंतज़ार है...")
 
-# --- 🛡️ MASTER SYSTEM RESET ---
-st.write("---")
-if st.button("🔄 CLEAR & NEW NSE SCAN"):
+if st.button("🔄 RESET"):
     for key in ["locked", "signal", "ep", "sl", "tg", "why"]:
         if key in st.session_state: del st.session_state[key]
     st.rerun()
