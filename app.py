@@ -5,23 +5,23 @@ import requests
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
-# --- 🎯 1. SUPREME SETTINGS (1s Refresh) ---
-st.set_page_config(page_title="Jarvis v145", layout="wide")
-st_autorefresh(interval=1000, key="jarvis_v145_final")
+# --- 🎯 1. SETTINGS ---
+st.set_page_config(page_title="Jarvis v146", layout="wide")
+st_autorefresh(interval=2000, key="jarvis_v146")
 
-# --- 🔊 2. BROWSER VOICE FIX ---
+# --- 🔊 2. VOICE FIX ---
 def jarvis_speak(text):
     if text:
         js = f"<script>window.speechSynthesis.cancel(); var m = new SpeechSynthesisUtterance('{text}'); m.lang='hi-IN'; window.speechSynthesis.speak(m);</script>"
         st.components.v1.html(js, height=0)
 
-# --- 🧠 3. PERMANENT STATE ---
+# --- 🧠 3. STATE ---
 if "init" not in st.session_state:
-    st.session_state.update({"lock": False, "sig": "SCANNING", "ep": 0.0, "advice": "डेटा सिंक हो रहा है..."})
+    st.session_state.update({"lock": False, "sig": "SCANNING", "ep": 0.0, "advice": "इंतज़ार करें..."})
 
-st.markdown("<h1 style='text-align:center; color:#00FF00;'>🏛️ JARVIS UNSTOPPABLE v145.0</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color:#00FF00;'>🛡️ JARVIS UNSTOPPABLE v146.0</h1>", unsafe_allow_html=True)
 
-# --- 📈 4. DATA ENGINE (No-Error Logic) ---
+# --- 📈 4. DATA ENGINE (With Safety Guard) ---
 def get_data():
     try:
         url = "https://query1.finance.yahoo.com/v8/finance/chart/^NSEI?interval=1m&range=1d"
@@ -35,30 +35,34 @@ def get_data():
 
 df = get_data()
 
-# --- ⚙️ 5. SAFETY CHECK & STRATEGY ---
-# यहाँ हमने चेक लगाया है ताकि TypeError न आए
-if not df.empty and len(df) > 25:
+# --- ⚙️ 5. NO-CRASH LOGIC ---
+# कम से कम 30 कैंडल्स होने पर ही जार्विस काम शुरू करेगा
+if not df.empty and len(df) > 30:
     try:
         df['E9'] = ta.ema(df['Close'], length=9)
         df['E21'] = ta.ema(df['Close'], length=21)
-        # अगर 200 कैंडल नहीं हैं, तो यह उपलब्ध डेटा का औसत लेगा (Safety Guard)
+        # 200 EMA के लिए सुरक्षा: अगर 200 कैंडल्स नहीं हैं, तो यह उपलब्ध डेटा का अधिकतम लेगा
         df['E200'] = ta.ema(df['Close'], length=min(len(df), 200))
         
         ltp = round(df['Close'].iloc[-1], 2)
 
         if not st.session_state.lock:
-            # 9/21 और 200 EMA का शुद्ध संगम
-            if df['E9'].iloc[-1] > df['E21'].iloc[-1] and ltp > df['E200'].iloc[-1]:
-                st.session_state.update({"sig": "CALL", "ep": ltp, "lock": True, "advice": "RUKO (BIG MOVE)"})
-                jarvis_speak("एन एस ई कॉल लॉक्ड। राजवीर सर, बड़े खिलाड़ियों की चाल शुरू हुई है।")
-            elif df['E9'].iloc[-1] < df['E21'].iloc[-1] and ltp < df['E200'].iloc[-1]:
-                st.session_state.update({"sig": "PUT", "ep": ltp, "lock": True, "advice": "RUKO (FALLING)"})
-                jarvis_speak("एन एस ई पुट लॉक्ड। ऑपरेटर्स माल बेच रहे हैं।")
+            # सुरक्षित इंडेक्सिंग (TypeError Fix)
+            val_e9 = df['E9'].iloc[-1]
+            val_e21 = df['E21'].iloc[-1]
+            val_e200 = df['E200'].iloc[-1] if not pd.isna(df['E200'].iloc[-1]) else ltp
+            
+            if val_e9 > val_e21 and ltp > val_e200:
+                st.session_state.update({"sig": "CALL", "ep": ltp, "lock": True, "advice": "RUKO (PROFIT BUILDING)"})
+                jarvis_speak("एन एस ई कॉल लॉक्ड। राजवीर सर, बाज़ार ऊपर जा रहा है।")
+            elif val_e9 < val_e21 and ltp < val_e200:
+                st.session_state.update({"sig": "PUT", "ep": ltp, "lock": True, "advice": "RUKO (GIRAAVAT)"})
+                jarvis_speak("एन एस ई पुट लॉक्ड। बाज़ार नीचे गिर रहा है।")
 
-        # Dashboard
+        # Dashboard View
         c1, c2 = st.columns(2)
         c1.metric("NIFTY 50", f"₹{ltp}")
-        c2.success(f"📌 {st.session_state.sig} @ {st.session_state.ep}")
+        c2.success(f"📌 {st.session_state.sig} | EP: {st.session_state.ep}")
         
         st.info(f"🧠 **Jarvis Advice:** {st.session_state.advice}")
 
@@ -66,9 +70,9 @@ if not df.empty and len(df) > 25:
         fig.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0))
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.warning("जार्विस डेटा प्रोसेस कर रहा है... कृपया रुकें।")
+        st.warning("जार्विस डेटा प्रोसेस कर रहा है... कृपया 5 सेकंड रुकें।")
 else:
-    st.info("📡 मार्केट अभी खुला है, जार्विस पर्याप्त डेटा (25 कैंडल्स) जमा कर रहा है ताकि एरर न आए।")
+    st.info("📡 मार्केट अभी खुला है। जार्विस पर्याप्त डेटा (30 कैंडल्स) जमा कर रहा है ताकि ऐप क्रैश न हो।")
 
 if st.button("🔄 RESET ALL"):
     for key in list(st.session_state.keys()): del st.session_state[key]
